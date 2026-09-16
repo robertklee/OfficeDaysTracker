@@ -29,35 +29,38 @@ To try offline support locally, use `npm run build && npm run preview` rather
 than the development server. Visit once online and wait for "Ready for offline
 use" before disconnecting. Installation is optional.
 
-## Cloudflare Pages
+## Cloudflare deployment
 
-Connect this Git repository to a **Pages** project with:
+The checked-in configuration targets **Cloudflare Workers Static Assets**, which
+matches Cloudflare's pipeline with separate build and deploy commands:
 
 | Setting | Value |
 | --- | --- |
 | Root directory | `/` or blank |
 | Build command | `npm run build` |
-| Output directory | `dist` |
+| Deploy command | `npm run deploy` |
 | Node version | `22.19.0` (also pinned in `.node-version`) |
 | Dependencies | `npm ci` using committed `package-lock.json` |
 
-The checked-in `wrangler.jsonc` describes the static Pages output only.
-No Functions, Workers, D1, secrets, Vite environment secrets, or infrastructure
-provisioning are needed. No deployment has been performed by this implementation.
+`npm run deploy` runs the pinned `wrangler deploy`. `wrangler.jsonc` publishes
+`dist` as static assets and routes unknown paths to the SPA entry point. It has
+no Worker script, Functions, D1, secrets, server-side attendance processing, or
+Vite environment secrets. This avoids calling the Pages API from a Workers build
+token, which otherwise fails with authentication code 10000.
 
-For normal Pages Git integration, leave the deploy command blank because Pages
-publishes `dist` after a successful build. If the Cloudflare project requires a
-custom deploy command, use `npm run deploy`; it runs the pinned, non-interactive
-equivalent `wrangler pages deploy dist --project-name rto-planner`.
+For a separate **Pages Git integration** project, use build command
+`npm run build`, output directory `dist`, and leave the deploy command blank;
+Pages publishes the output itself. Do not run `wrangler pages deploy` from a
+Workers build unless its custom token has Cloudflare Pages edit permission.
 
-Keep Pages' normal SPA fallback: **do not add a top-level `404.html`**.
+Keep the configured SPA fallback: **do not add a top-level `404.html`**.
 The router handles `/dashboard`, `/calendar`, `/settings`, and unknown routes.
 `public/_headers` supplies a same-origin CSP, anti-framing policy, MIME protection,
 referrer policy, and disabled camera/microphone/location permissions. All fonts,
-scripts, styles, and PWA assets are local. Pages serves ordinary request metadata;
-this is not a promise that visits are invisible.
+scripts, styles, and PWA assets are local. Cloudflare receives ordinary request
+metadata; this is not a promise that visits are invisible.
 
-Choose a stable production origin. A custom domain, `pages.dev`, branch previews,
+Choose a stable production origin. A custom domain, `workers.dev`, `pages.dev`, previews,
 and local development each have a separate IndexedDB. Transfer records between
 origins with JSON export/import, not automatic migration. Use only synthetic data
 in previews. GitHub Actions runs the local quality gates but does not deploy.
