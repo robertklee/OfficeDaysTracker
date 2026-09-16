@@ -15,8 +15,8 @@ npm run dev
 ```
 
 Open the address printed by Vite. Confirm a policy on the first visit, or restore
-a versioned JSON backup. The default best 8-of-12 / 3-day policy is an unconfirmed
-example until you explicitly accept it.
+a versioned JSON backup. The default best-8-of-12 average / 3-day policy is an
+unconfirmed example until you explicitly accept it.
 
 ```sh
 npm test                 # Pure domain, storage, migration, and backup tests
@@ -100,13 +100,13 @@ remain compatible with deployed assets. Asset rollback does not roll back data.
 
 Civil dates use `Temporal.PlainDate` and never local-midnight timestamps.
 Today comes from the persisted policy timezone and refreshes on focus and every
-15 seconds. Weekends never earn credit. Midweek enforcement starts formal
-evaluation the next full policy week. Leave does not lower targets. Rolling
+15 seconds. Recorded office days can earn credit on any day, including weekends.
+Midweek enforcement starts formal evaluation the next full policy week. Leave does not lower targets. Rolling
 initialization uses the disclosed scaled target; current-week progress is never
 formal completed-week compliance. Plans are never silently confirmed.
 
 The forecast covers the current policy week **plus the next max(12, window)
-weeks**. Unknown future weekdays are capacity, not remote records. Actual future
+weeks**. Unknown future dates are capacity, not remote records. Actual future
 records imported from a backup are excluded from history and are not silently
 promoted into plans. Past plans require confirmation. A protected conflict does
 not lower the policy requirement. The app cannot certify an employer's policy.

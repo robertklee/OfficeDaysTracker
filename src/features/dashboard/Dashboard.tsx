@@ -55,7 +55,7 @@ export function Dashboard() {
       </section>
     );
   const currentStart = startOfWeek(today, policy.weekStart);
-  const weekDates = dateRange(currentStart, addDays(currentStart, 6), false);
+  const weekDates = dateRange(currentStart, addDays(currentStart, 6));
   const office = snapshot.dataset.records.filter(
     (entry) =>
       weekDates.includes(entry.date) &&
@@ -261,7 +261,7 @@ export function Dashboard() {
           <div>
             <h3>Available-capacity case</h3>
             <p>
-              Add every unknown future weekday, preserving explicit non-office plans, leave, and
+              Add every unknown future date, preserving explicit non-office plans, leave, and
               protected commitments.
             </p>
           </div>
@@ -279,7 +279,7 @@ export function Dashboard() {
             </p>
             <p>
               This week has {affected.committedDates.length} committed office days and{' '}
-              {affected.availableDates.length} remaining unknown weekdays
+              {affected.availableDates.length} remaining unknown dates
               {affected.availableDates.length
                 ? `: ${affected.availableDates.map(formatShort).join(', ')}`
                 : '.'}
@@ -391,8 +391,8 @@ export function Dashboard() {
         <p>{formulas[policy.kind].explain(policy)}</p>
         <p className="muted">
           Weeks start {weekdayName(policy.weekStart)} · {policy.timeZone} · Enforced from{' '}
-          {formatDate(policy.startDate)}. Weekends earn no credit. Leave exemptions are not modeled.
-          Only completed full weeks determine recorded compliance.
+          {formatDate(policy.startDate)}. Recorded weekend office days can earn credit. Leave
+          exemptions are not modeled. Only completed full weeks determine recorded compliance.
         </p>
         <Link to="/settings">Review policy & assumptions</Link>
       </section>

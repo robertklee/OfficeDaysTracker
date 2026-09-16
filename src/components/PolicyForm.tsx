@@ -31,7 +31,7 @@ export function PolicyForm({ setup = false }: { setup?: boolean }) {
     };
     setDraft(
       kind === 'rolling'
-        ? { ...base, kind, x: 8, y: 12, n: 3, mode: 'qualifying' }
+        ? { ...base, kind, x: 8, y: 12, n: 3, mode: 'average' }
         : kind === 'weekly'
           ? { ...base, kind, n: 3, windowWeeks: 4 }
           : { ...base, kind, requiredDays: [2, 3, 4], windowWeeks: 4 },
@@ -62,8 +62,8 @@ export function PolicyForm({ setup = false }: { setup?: boolean }) {
         <div className="notice">
           <strong>Your browser, your data.</strong> No account or attendance server. Browser
           eviction, private browsing, clearing site data, or switching browsers can lose your
-          records. Keep JSON backups. The suggested 8-of-12 policy is only a starting point, not a
-          claim about your employer.
+          records. Keep JSON backups. The suggested best-8-of-12 average policy is only a starting
+          point, not a claim about your employer.
         </div>
       )}
       <div className="form-grid">
@@ -203,8 +203,9 @@ export function PolicyForm({ setup = false }: { setup?: boolean }) {
         </p>
       )}
       <p className="muted">
-        Only Monday-Friday earns credit. Leave does not reduce targets. Midweek enforcement begins
-        formal evaluation with the next full week. Current weeks are provisional.
+        Every recorded office day can earn credit, including weekends. Leave does not reduce
+        targets. Midweek enforcement begins formal evaluation with the next full week. Current weeks
+        are provisional.
       </p>
       <button className="primary" type="submit">
         Preview policy

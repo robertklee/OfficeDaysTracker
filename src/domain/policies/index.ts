@@ -109,7 +109,7 @@ export const formulas: Record<Policy['kind'], PolicyFormula> = {
 };
 
 export function weekFromDates(policy: Policy, start: string, dates: ReadonlySet<string>): Week {
-  const officeDates = dateRange(start, addDays(start, 6), false).filter((date) => dates.has(date));
+  const officeDates = dateRange(start, addDays(start, 6)).filter((date) => dates.has(date));
   return {
     start,
     end: addDays(start, 6),
@@ -209,8 +209,7 @@ export function evaluate(
           entry.type === 'office' &&
           entry.status === 'actual' &&
           entry.date <= today &&
-          entry.date >= policy.startDate &&
-          weekday(entry.date) <= 5,
+          entry.date >= policy.startDate,
       )
       .map((entry) => entry.date),
   );
