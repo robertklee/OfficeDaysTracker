@@ -45,6 +45,11 @@ The checked-in `wrangler.jsonc` describes the static Pages output only.
 No Functions, Workers, D1, secrets, Vite environment secrets, or infrastructure
 provisioning are needed. No deployment has been performed by this implementation.
 
+For normal Pages Git integration, leave the deploy command blank because Pages
+publishes `dist` after a successful build. If the Cloudflare project requires a
+custom deploy command, use `npm run deploy`; it runs the pinned, non-interactive
+equivalent `wrangler pages deploy dist --project-name rto-planner`.
+
 Keep Pages' normal SPA fallback: **do not add a top-level `404.html`**.
 The router handles `/dashboard`, `/calendar`, `/settings`, and unknown routes.
 `public/_headers` supplies a same-origin CSP, anti-framing policy, MIME protection,
