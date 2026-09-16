@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#172b43"/>
+      <stop offset="1" stop-color="#213f60"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#0b192a" flood-opacity=".28"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="630" fill="url(#background)"/>
+  <circle cx="1040" cy="70" r="210" fill="#60b5ed" opacity=".08"/>
+  <circle cx="110" cy="610" r="250" fill="#4ec49a" opacity=".07"/>
+
+  <g transform="translate(76 72)">
+    <rect width="76" height="76" rx="18" fill="#fff"/>
+    <rect x="17" y="20" width="42" height="40" rx="5" fill="#172b43"/>
+    <path d="M17 32h42" stroke="#fff" stroke-width="4"/>
+    <path d="M27 16v10m22-10v10" stroke="#60b5ed" stroke-width="6" stroke-linecap="round"/>
+    <path d="m28 45 7 7 15-16" fill="none" stroke="#4ec49a" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <text x="172" y="121" fill="#fff" font-family="Arial, Helvetica, sans-serif" font-size="38" font-weight="700">RTO</text>
+  <text x="246" y="121" fill="#c8d7e8" font-family="Arial, Helvetica, sans-serif" font-size="38">planner</text>
+
+  <text x="76" y="240" fill="#fff" font-family="Arial, Helvetica, sans-serif" font-size="58" font-weight="700" letter-spacing="-2">Plan your office rhythm.</text>
+  <text x="79" y="295" fill="#c8d7e8" font-family="Arial, Helvetica, sans-serif" font-size="24">Private attendance tracking. Explainable forecasts.</text>
+  <text x="79" y="334" fill="#c8d7e8" font-family="Arial, Helvetica, sans-serif" font-size="24">Your data stays in your browser.</text>
+
+  <g transform="translate(720 102) scale(.88)" filter="url(#shadow)">
+    <rect width="450" height="432" rx="24" fill="#fff"/>
+    <rect width="450" height="68" rx="24" fill="#f3f6fa"/>
+    <path d="M0 46h450v22H0z" fill="#f3f6fa"/>
+    <circle cx="34" cy="34" r="7" fill="#60b5ed"/>
+    <text x="54" y="43" fill="#263e59" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700">March 2026</text>
+    <g fill="#62758a" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="700" text-anchor="middle">
+      <text x="44" y="96">MON</text><text x="104" y="96">TUE</text><text x="164" y="96">WED</text>
+      <text x="224" y="96">THU</text><text x="284" y="96">FRI</text><text x="344" y="96">SAT</text><text x="404" y="96">SUN</text>
+    </g>
+    <g stroke="#dce5ee" stroke-width="1">
+      <path d="M14 112h422M14 174h422M14 236h422M14 298h422M14 360h422M14 422h422"/>
+      <path d="M74 112v310M134 112v310M194 112v310M254 112v310M314 112v310M374 112v310"/>
+    </g>
+    <g fill="#e6e9ed"><rect x="314" y="112" width="122" height="310"/></g>
+    <g fill="#263e59" font-family="Arial, Helvetica, sans-serif" font-size="14">
+      <text x="25" y="148">23</text><text x="85" y="148">24</text><text x="145" y="148">25</text>
+      <text x="205" y="148">26</text><text x="265" y="148">27</text><text x="325" y="148">28</text>
+      <text x="385" y="148">1</text>
+    </g>
+    <rect x="14" y="112" width="60" height="62" fill="#e6f0fe"/>
+    <rect x="74" y="112" width="60" height="62" fill="#e5f3ea"/>
+    <rect x="134" y="112" width="60" height="62" fill="#e6f0fe" stroke="#416a92" stroke-width="3"/>
+    <rect x="194" y="112" width="60" height="62" fill="#f0eafb" stroke="#70538e" stroke-width="3"/>
+    <rect x="254" y="112" width="60" height="62" fill="#e6f0fe" stroke="#416a92" stroke-width="3"/>
+    <g font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="700">
+      <text x="25" y="165" fill="#175990">OFFICE</text>
+      <text x="85" y="165" fill="#17604b">REMOTE</text>
+      <text x="145" y="165" fill="#175990">PLAN</text>
+      <text x="205" y="165" fill="#624284">LEAVE !</text>
+      <text x="265" y="165" fill="#175990">PLAN</text>
+    </g>
+    <rect x="28" y="384" width="394" height="22" rx="11" fill="#e8eef5"/>
+    <rect x="28" y="384" width="278" height="22" rx="11" fill="#318464"/>
+  </g>
+
+  <g transform="translate(78 410)">
+    <rect width="500" height="108" rx="18" fill="#fff" opacity=".98"/>
+    <circle cx="52" cy="54" r="25" fill="#eaf5ef"/>
+    <path d="m41 54 8 8 16-18" fill="none" stroke="#176b56" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="94" y="49" fill="#203149" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700">More planning needed</text>
+    <text x="94" y="78" fill="#5d6d80" font-family="Arial, Helvetica, sans-serif" font-size="16">See the gap. Find a workable path.</text>
+  </g>
+</svg>
