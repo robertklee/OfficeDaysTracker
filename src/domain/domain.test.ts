@@ -11,7 +11,7 @@ import {
 import { evaluate } from './policies';
 import { forecast } from './projection';
 import { simulatedEntries, strategyLabel, suggest } from './planning';
-import { policySchema, type Entry, type Policy } from './schema';
+import { defaultPolicy, policySchema, type Entry, type Policy } from './schema';
 
 const start = '2026-01-05';
 const today = '2026-03-30';
@@ -51,6 +51,16 @@ const weekly: Policy = {
 };
 
 describe('civil dates and policy validation', () => {
+  it('defaults first-run rolling policies to average of the best weeks', () => {
+    expect(defaultPolicy('2026-03-24', 'America/Los_Angeles')).toMatchObject({
+      kind: 'rolling',
+      mode: 'average',
+      x: 8,
+      y: 12,
+      n: 3,
+    });
+  });
+
   it('validates real Gregorian keys and IANA zones', () => {
     expect(isCivilDate('2024-02-29')).toBe(true);
     for (const bad of ['2025-02-29', '2026-04-31', '2026-1-05', '0000-01-01', 'March 24'])
@@ -133,7 +143,7 @@ describe('completed-week policy evaluation', () => {
     expect(evaluate(weekly, [], '2026-01-12').state).toBe('shortfall');
     expect(evaluate(weekly, history([5, 1]), '2026-01-19').state).toBe('shortfall');
   });
-  it('excludes unfinished weeks, pre-enforcement dates, weekends, plans and future actuals', () => {
+  it('excludes unfinished weeks, pre-enforcement dates, plans and future actuals', () => {
     const records = [
       entry('2026-01-04'),
       entry('2026-01-05', { status: 'planned' }),
@@ -141,8 +151,16 @@ describe('completed-week policy evaluation', () => {
       entry('2026-01-11'),
       entry('2026-01-12'),
     ];
-    expect(evaluate(weekly, records, '2026-01-12').weeks[0].count).toBe(0);
+    expect(evaluate(weekly, records, '2026-01-12').weeks[0].count).toBe(2);
     expect(evaluate(weekly, records, '2026-01-09').weeks).toHaveLength(0);
+  });
+  it('credits weekend office attendance and includes unknown weekends in available capacity', () => {
+    const weekendRecords = [entry('2026-01-10'), entry('2026-01-11')];
+    expect(evaluate({ ...weekly, n: 2 }, weekendRecords, '2026-01-12').state).toBe('compliant');
+    const result = forecast({ policy: { ...weekly, startDate: today }, records: [], today });
+    expect(result.checkpoints[0].availableDates).toHaveLength(7);
+    expect(result.checkpoints[0].availableDates).toContain('2026-04-04');
+    expect(result.checkpoints[0].availableDates).toContain('2026-04-05');
   });
   it.each([1, 6, 7] as const)('completes weeks correctly for start %s', (weekStart) => {
     const policy = { ...weekly, weekStart, startDate: '2026-01-03' };

@@ -104,7 +104,7 @@ export const emptyDataset = (): Dataset => ({
 });
 export const defaultPolicy = (today: string, timeZone: string): Policy => ({
   kind: 'rolling',
-  mode: 'qualifying',
+  mode: 'average',
   x: 8,
   y: 12,
   n: 3,

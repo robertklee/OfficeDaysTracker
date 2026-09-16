@@ -1,4 +1,4 @@
-import { addDays, dateRange, firstEligibleWeek, startOfWeek, weekday } from '../dates';
+import { addDays, dateRange, firstEligibleWeek, startOfWeek } from '../dates';
 import {
   evaluateWeeks,
   policyWindow,
@@ -53,13 +53,12 @@ export function forecast(snapshot: Snapshot): Forecast {
         (entry) =>
           entry.type === 'office' &&
           entry.date >= policy.startDate &&
-          weekday(entry.date) <= 5 &&
           ((entry.status === 'actual' && entry.date <= snapshot.today) ||
             (entry.status === 'planned' && entry.date >= snapshot.today)),
       )
       .map((entry) => entry.date),
   );
-  const availableDates = dateRange(snapshot.today, end, false).filter(
+  const availableDates = dateRange(snapshot.today, end).filter(
     (date) => date >= first && !records.has(date),
   );
   const capacity = new Set([...committed, ...availableDates]);

@@ -367,7 +367,7 @@ export function Calendar() {
                 const entry = records.get(date);
                 const hint =
                   !entry && !isWeekend(date) && touchedWeeks.has(startOfWeek(date, weekStart));
-                const accessible = `${formatDate(date, true)}, ${entry ? `${labels[entry.type]}, ${entry.status}, ${entry.priority === 'must' ? 'must priority, protected' : 'normal priority'}` : hint ? 'unentered, visual remote hint only' : 'unentered'}${isWeekend(date) ? ', weekend, no policy credit' : ''}${date === today ? ', today' : ''}`;
+                const accessible = `${formatDate(date, true)}, ${entry ? `${labels[entry.type]}, ${entry.status}, ${entry.priority === 'must' ? 'must priority, protected' : 'normal priority'}` : hint ? 'unentered, visual remote hint only' : 'unentered'}${isWeekend(date) ? ', weekend' : ''}${date === today ? ', today' : ''}`;
                 return (
                   <div key={date} role="gridcell" aria-selected={selected.has(date)}>
                     <button
@@ -424,7 +424,8 @@ export function Calendar() {
         </div>
         <p className="calendar-help">
           Faint green means an unentered weekday in a touched week, not a saved remote day. Dark
-          gray means weekend (no policy credit). Past plans need explicit confirmation.
+          gray means an unentered weekend. Recorded weekend office days can earn policy credit. Past
+          plans need explicit confirmation.
         </p>
       </section>
       <section className="card">

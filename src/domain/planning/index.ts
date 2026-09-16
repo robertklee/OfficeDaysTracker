@@ -1,4 +1,4 @@
-import { addDays, weekday } from '../dates';
+import { addDays } from '../dates';
 import { forecast, type Snapshot } from '../projection';
 import { type Entry, policySchema } from '../schema';
 
@@ -52,7 +52,6 @@ export function suggest(snapshot: Snapshot): Suggestion {
         (entry) =>
           entry.date >= snapshot.today &&
           entry.date <= initial.end &&
-          weekday(entry.date) <= 5 &&
           entry.type === 'remote' &&
           entry.status === 'planned' &&
           entry.priority !== 'must',
