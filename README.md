@@ -3,8 +3,9 @@
 A private, local-first return-to-office tracker built from
 [`web-feature-specification.md`](web-feature-specification.md). The React/TypeScript
 application lives at the repository root. The local planner works without an account.
-Optional username/password accounts use **Cloudflare Pages Functions and D1** for
-a separate cross-device planner. There are no analytics.
+Optional username/password accounts use **Cloudflare Workers and D1** for a
+separate cross-device planner. A Pages Functions configuration remains available
+for optional Pages deployments. There are no analytics.
 
 ## Run locally
 
@@ -16,18 +17,19 @@ npm run db:local
 npm run cf:dev
 ```
 
-Open `http://localhost:8788`. This runs Pages Functions, the built PWA, and a
+Open `http://localhost:8788`. This runs the Worker, the built PWA, and a
 **local** D1 database; it does not access production. For Vite hot reload, leave
-Pages running and use a second terminal:
+Wrangler running and use a second terminal:
 
 ```sh
 npm run dev
 ```
 
-Vite proxies `/api` to Pages on port 8788. Without Pages, the local planner still
-works but reports that account connectivity is unavailable. Confirm a policy on the first visit, or restore
-a versioned JSON backup. The default best-8-of-12 average / 3-day policy is an
-unconfirmed example until you explicitly accept it.
+Vite proxies `/api` to the Worker on port 8788. Without Wrangler, the local
+planner still works but reports that account connectivity is unavailable.
+Confirm a policy on the first visit, or restore a versioned JSON backup. The
+default best-8-of-12 average / 3-day policy is an unconfirmed example until you
+explicitly accept it.
 
 ```sh
 npm test                 # Pure domain, storage, migration, and backup tests
@@ -45,13 +47,29 @@ local planner supports offline persistence.
 
 ## Cloudflare deployment
 
-`wrangler.jsonc` now targets **Pages**, not Workers Static Assets. The Pages project
-is `officedaystracker`. Production binds `DB` to `rto-planner`; preview binds it to
-the separate `rto-planner-preview` database. These are dedicated databases, not
-the Ensemble reference database. The old static Worker and any existing custom
-domain are not changed by a Pages deployment.
+The default `wrangler.jsonc` targets **Workers with Static Assets**, matching
+Ensemble and Cloudflare Workers Builds. `server/worker.ts` sends `/api` to the
+account handler before the SPA fallback. Production binds `DB` to the dedicated
+`rto-planner` database, not Ensemble's database.
 
-For a separately created Pages Git-integration project, use:
+Use these Cloudflare Workers Builds settings:
+
+| Setting | Value |
+| --- | --- |
+| Root directory | `/` or blank |
+| Build command | `npm run build` |
+| Deploy command | `npm run deploy` |
+| Node version | `22.19.0` (also pinned in `.node-version`) |
+| Dependencies | `npm ci` using committed `package-lock.json` |
+
+`npm run deploy` runs `wrangler deploy`. The Workers Builds token therefore
+needs Workers Scripts edit access, not Pages edit access. A token that can run
+`wrangler whoami` but lacks the target product's edit permission is not sufficient.
+
+`cloudflare-pages/wrangler.jsonc` is the optional Pages configuration. It binds
+production to `rto-planner` and Pages previews to the separate
+`rto-planner-preview` database. For a separately created Pages Git-integration
+project, use:
 
 | Setting | Value |
 | --- | --- |
@@ -62,10 +80,10 @@ For a separately created Pages Git-integration project, use:
 | Node version | `22.19.0` (also pinned in `.node-version`) |
 | Dependencies | `npm ci` using committed `package-lock.json` |
 
-The initially provisioned project uses direct upload (not the old Worker's build
-pipeline). Cloudflare does not let a direct-upload project switch to native Git
-integration later; use a Pages-capable CI token for automated direct uploads, or
-create a separate Git-integrated Pages project. For manual releases:
+The optional `officedaystracker` Pages project uses direct upload. Cloudflare does
+not let a direct-upload project switch to native Git integration later; use a
+Pages-capable CI token for automated direct uploads, or create a separate
+Git-integrated Pages project. For the default Worker release:
 
 ```sh
 npx wrangler whoami
@@ -73,7 +91,7 @@ npx wrangler d1 info rto-planner
 npx wrangler d1 migrations list DB --remote
 npm run db:remote
 npm run build
-npm run deploy -- --branch main
+npm run deploy
 ```
 
 **Creating a database or deploying code does not create its tables.** Migrations
@@ -85,37 +103,42 @@ without reading user records:
 npx wrangler d1 migrations list DB --remote
 npx wrangler d1 execute DB --remote \
   --command "SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name"
-curl --fail https://officedaystracker.pages.dev/api/health
+curl --fail https://officedaystracker.robert-k-lee.workers.dev/api/health
 ```
 
 `/api/health` queries every required table/column and returns JSON `503` if the
 binding or schema is missing. It is a readiness check, not proof that passwords,
 cookies and planner writes work. Exercise actual signup/login/save/logout with
-disposable accounts **only in isolated staging**:
+disposable accounts **only in isolated staging**. The existing optional Pages
+preview path is:
 
 ```sh
 npm run db:preview
 npm run build
-npm run deploy -- --branch account-staging
+npm run deploy:pages -- --branch account-staging
 ```
 
 The preview alias is `https://account-staging.officedaystracker.pages.dev`.
 All preview branches share the configured preview database, not production.
 Do not deploy untrusted code with access to either real-user data or deployment
 credentials. Use another Pages project/database for untrusted previews.
-Other installations must create their own Pages project and two D1 databases,
-replace both database IDs, and apply each database's migrations.
+Other installations must create their own Worker or Pages project and D1
+databases, replace the database IDs, and apply each database's migrations.
 
-`npm run deploy` uses **`wrangler pages deploy`**, never `wrangler deploy`.
-CI deployment credentials require scoped Pages edit and D1 edit permissions;
-keep `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` in CI secrets, never Vite.
+`npm run deploy:pages` uses `wrangler pages deploy` and requires Pages edit
+permission. The default `npm run deploy` deliberately uses `wrangler deploy`,
+which is compatible with the existing Workers Builds token. Migration credentials
+also require D1 edit permission. Keep `CLOUDFLARE_API_TOKEN` and
+`CLOUDFLARE_ACCOUNT_ID` in CI secrets, never Vite.
 GitHub Actions runs quality gates but does not deploy or migrate remote data.
 Do not change hosting or DNS without planning a stable-origin data transfer.
 
 Keep the configured SPA fallback: **do not add a top-level `404.html`**.
 The router handles `/dashboard`, `/calendar`, `/settings`, `/account`, and unknown routes.
-`public/_routes.json` sends only `/api` and `/api/*` to
-`functions/api/[[path]].ts`; unknown API paths return JSON, not the SPA shell.
+The Worker's `run_worker_first` setting sends `/api` and `/api/*` through
+`server/worker.ts`; unknown API paths return JSON, not the SPA shell. Optional
+Pages deployments use `public/_routes.json` and
+`cloudflare-pages/functions/api/[[path]].ts`.
 `public/_headers` supplies a same-origin CSP, anti-framing policy, MIME protection,
 referrer policy, and disabled camera/microphone/location permissions. All fonts,
 scripts, styles, and PWA assets are local. Cloudflare receives ordinary request

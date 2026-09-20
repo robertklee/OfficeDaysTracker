@@ -34,13 +34,13 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: `npm run db:local -- --persist-to ${persistence} && npm run build && npx wrangler pages dev dist --ip 127.0.0.1 --port 8789 --persist-to ${persistence}`,
+      command: `npm run db:local -- --persist-to ${persistence} && npm run build && npx wrangler pages dev ../dist --cwd cloudflare-pages --ip 127.0.0.1 --port 8789 --persist-to ../${persistence}`,
       url: `${origin}/api/health`,
       reuseExistingServer: false,
       timeout: 180_000,
     },
     {
-      command: `npx wrangler pages dev dist --ip 127.0.0.1 --port 8790 --persist-to ${lifecyclePersistence}`,
+      command: `npx wrangler pages dev ../dist --cwd cloudflare-pages --ip 127.0.0.1 --port 8790 --persist-to ../${lifecyclePersistence}`,
       url: lifecycleOrigin,
       reuseExistingServer: false,
       timeout: 60_000,
