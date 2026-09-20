@@ -1,9 +1,16 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "officedaystracker",
+  "main": "server/worker.ts",
   "compatibility_date": "2026-09-20",
   "compatibility_flags": ["nodejs_compat"],
-  "pages_build_output_dir": "./dist",
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "html_handling": "none",
+    "run_worker_first": ["/api", "/api/*"],
+  },
   "d1_databases": [
     {
       "binding": "DB",
@@ -12,16 +19,4 @@
       "migrations_dir": "migrations",
     },
   ],
-  "env": {
-    "preview": {
-      "d1_databases": [
-        {
-          "binding": "DB",
-          "database_name": "rto-planner-preview",
-          "database_id": "2f719677-14a6-4f49-be47-2cf65a862df0",
-          "migrations_dir": "migrations",
-        },
-      ],
-    },
-  },
 }

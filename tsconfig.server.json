@@ -12,5 +12,5 @@
     "skipLibCheck": true,
     "types": ["@cloudflare/workers-types", "node"]
   },
-  "include": ["server", "functions"]
+  "include": ["server", "cloudflare-pages/functions"]
 }
