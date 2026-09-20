@@ -2,8 +2,9 @@
 
 A private, local-first return-to-office tracker built from
 [`web-feature-specification.md`](web-feature-specification.md). The React/TypeScript
-application lives at the repository root. No native app files, attendance backend, accounts,
-analytics, or cloud database are required.
+application lives at the repository root. The local planner works without an account.
+Optional username/password accounts use **Cloudflare Pages Functions and D1** for
+a separate cross-device planner. There are no analytics.
 
 ## Run locally
 
@@ -11,10 +12,20 @@ Use the Node version in `.node-version`.
 
 ```sh
 npm ci
+npm run db:local
+npm run cf:dev
+```
+
+Open `http://localhost:8788`. This runs Pages Functions, the built PWA, and a
+**local** D1 database; it does not access production. For Vite hot reload, leave
+Pages running and use a second terminal:
+
+```sh
 npm run dev
 ```
 
-Open the address printed by Vite. Confirm a policy on the first visit, or restore
+Vite proxies `/api` to Pages on port 8788. Without Pages, the local planner still
+works but reports that account connectivity is unavailable. Confirm a policy on the first visit, or restore
 a versioned JSON backup. The default best-8-of-12 average / 3-day policy is an
 unconfirmed example until you explicitly accept it.
 
@@ -23,38 +34,88 @@ npm test                 # Pure domain, storage, migration, and backup tests
 npm run build            # Strict TypeScript and production PWA build
 npx playwright install   # Browser runtimes, once
 npm run test:e2e          # Builds and serves the production app for browser journeys
+npm run test:accounts     # Real local Pages + isolated D1 account/API/browser journeys
 ```
 
 To try offline support locally, use `npm run build && npm run preview` rather
-than the development server. Visit once online and wait for "Ready for offline
-use" before disconnecting. Installation is optional.
+than the development server. Preview serves only static assets, not account APIs.
+Visit once online and wait for "Ready for offline use" before disconnecting.
+Installation is optional. **Account storage requires a connection**; only the
+local planner supports offline persistence.
 
 ## Cloudflare deployment
 
-The checked-in configuration targets **Cloudflare Workers Static Assets**, which
-matches Cloudflare's pipeline with separate build and deploy commands:
+`wrangler.jsonc` now targets **Pages**, not Workers Static Assets. The Pages project
+is `officedaystracker`. Production binds `DB` to `rto-planner`; preview binds it to
+the separate `rto-planner-preview` database. These are dedicated databases, not
+the Ensemble reference database. The old static Worker and any existing custom
+domain are not changed by a Pages deployment.
+
+For a separately created Pages Git-integration project, use:
 
 | Setting | Value |
 | --- | --- |
 | Root directory | `/` or blank |
 | Build command | `npm run build` |
-| Deploy command | `npm run deploy` |
+| Output directory | `dist` |
+| Deploy command | Blank; Pages Git integration deploys automatically |
 | Node version | `22.19.0` (also pinned in `.node-version`) |
 | Dependencies | `npm ci` using committed `package-lock.json` |
 
-`npm run deploy` runs the pinned `wrangler deploy`. `wrangler.jsonc` publishes
-`dist` as static assets and routes unknown paths to the SPA entry point. It has
-no Worker script, Functions, D1, secrets, server-side attendance processing, or
-Vite environment secrets. This avoids calling the Pages API from a Workers build
-token, which otherwise fails with authentication code 10000.
+The initially provisioned project uses direct upload (not the old Worker's build
+pipeline). Cloudflare does not let a direct-upload project switch to native Git
+integration later; use a Pages-capable CI token for automated direct uploads, or
+create a separate Git-integrated Pages project. For manual releases:
 
-For a separate **Pages Git integration** project, use build command
-`npm run build`, output directory `dist`, and leave the deploy command blank;
-Pages publishes the output itself. Do not run `wrangler pages deploy` from a
-Workers build unless its custom token has Cloudflare Pages edit permission.
+```sh
+npx wrangler whoami
+npx wrangler d1 info rto-planner
+npx wrangler d1 migrations list DB --remote
+npm run db:remote
+npm run build
+npm run deploy -- --branch main
+```
+
+**Creating a database or deploying code does not create its tables.** Migrations
+are an explicit, separately authorized release step. The initial migration
+creates `users`, `sessions`, `rate_limits`, and `planners` atomically. Verify
+without reading user records:
+
+```sh
+npx wrangler d1 migrations list DB --remote
+npx wrangler d1 execute DB --remote \
+  --command "SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name"
+curl --fail https://officedaystracker.pages.dev/api/health
+```
+
+`/api/health` queries every required table/column and returns JSON `503` if the
+binding or schema is missing. It is a readiness check, not proof that passwords,
+cookies and planner writes work. Exercise actual signup/login/save/logout with
+disposable accounts **only in isolated staging**:
+
+```sh
+npm run db:preview
+npm run build
+npm run deploy -- --branch account-staging
+```
+
+The preview alias is `https://account-staging.officedaystracker.pages.dev`.
+All preview branches share the configured preview database, not production.
+Do not deploy untrusted code with access to either real-user data or deployment
+credentials. Use another Pages project/database for untrusted previews.
+Other installations must create their own Pages project and two D1 databases,
+replace both database IDs, and apply each database's migrations.
+
+`npm run deploy` uses **`wrangler pages deploy`**, never `wrangler deploy`.
+CI deployment credentials require scoped Pages edit and D1 edit permissions;
+keep `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` in CI secrets, never Vite.
+GitHub Actions runs quality gates but does not deploy or migrate remote data.
+Do not change hosting or DNS without planning a stable-origin data transfer.
 
 Keep the configured SPA fallback: **do not add a top-level `404.html`**.
-The router handles `/dashboard`, `/calendar`, `/settings`, and unknown routes.
+The router handles `/dashboard`, `/calendar`, `/settings`, `/account`, and unknown routes.
+`public/_routes.json` sends only `/api` and `/api/*` to
+`functions/api/[[path]].ts`; unknown API paths return JSON, not the SPA shell.
 `public/_headers` supplies a same-origin CSP, anti-framing policy, MIME protection,
 referrer policy, and disabled camera/microphone/location permissions. All fonts,
 scripts, styles, and PWA assets are local. Cloudflare receives ordinary request
@@ -62,8 +123,89 @@ metadata; this is not a promise that visits are invisible.
 
 Choose a stable production origin. A custom domain, `workers.dev`, `pages.dev`, previews,
 and local development each have a separate IndexedDB. Transfer records between
-origins with JSON export/import, not automatic migration. Use only synthetic data
-in previews. GitHub Actions runs the local quality gates but does not deploy.
+origins with JSON export/import, not automatic migration. A new Pages address
+cannot access records stored on the old Worker address. Use only synthetic data
+in previews.
+
+## Accounts, data boundaries and operations
+
+Visit **Account** to sign up, sign in, or sign out. Usernames are normalized to
+lowercase (3-30 ASCII letters, numbers or underscores), display names are 1-60
+characters, and passwords are 12-200 characters with no trimming/truncation.
+Account creation is transactional: user, session, and empty planner succeed
+together. **Local records are never uploaded automatically.** After signing in,
+review the local-data import or restore a JSON backup in Settings. Both operations
+replace only the account planner after confirmation and preserve the local original.
+
+Local data remains in the original `rto-planner` IndexedDB. Account data stays in
+D1 and in the active page's memory only, not IndexedDB/localStorage/Cache Storage.
+Passwords and session tokens are never persisted by application JavaScript.
+Signout revokes the presented session and remounts the local workspace, clearing
+account data, drafts and undo history; other tabs receive a broadcast to clear
+their account workspace too. Every planner request includes the expected account
+ID, checked against the cookie session, so stale tabs cannot write to a newly
+signed-in account. All reads/writes are scoped by the server-authenticated user ID.
+
+Cloud updates are read on focus and every 30 seconds while no edit is pending.
+The same shared action reducer implements local and cloud revision conflicts,
+per-date tombstones, generation invalidation, atomic replacement and undo.
+D1 uses compare-and-swap writes; concurrent independent-date edits can succeed,
+while stale same-date edits are rejected, not silently overwritten. The latest
+mutation ID and result are retained for retry after a dropped response; once a
+later mutation supersedes it, a stale retry may require refresh/review instead.
+Failed edits can be exported before discarding. No offline cloud-write queue or
+automatic merge is provided. The account limit is **1.5 MB including revision
+and last-undo metadata** (below D1's row limit); the existing 5 MB local backup
+import limit is unchanged.
+
+Passwords use native Workers `node:crypto.scrypt` with versioned
+`N=16384, r=8, p=5`, a random 16-byte salt, a 32-byte derived key, and
+`timingSafeEqual` verification. This is the
+[OWASP 16 MiB scrypt profile](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html#scrypt);
+nonexistent users perform the same derivation. Hash version/parameters are stored
+with each hash; unsupported versions fail explicitly. Future work-factor changes
+must add version-aware verification and upgrade hashes after successful login.
+Benchmark real staging authentication on the intended Cloudflare plan; a local
+test or build cannot establish production CPU capacity. Do not weaken hashing
+to meet a free-tier CPU limit.
+
+Sessions use random 32-byte tokens, with only SHA-256 token digests in D1.
+The host-only cookie is `HttpOnly; Secure; SameSite=Strict; Path=/` and expires
+after 30 days (only loopback HTTP omits `Secure`). Exact same-origin `Origin`
+headers and JSON are required for mutations; bodies and stored data are bounded.
+All API responses, including errors, are `no-store`, and the service worker never
+caches `/api` requests or API navigations.
+
+Database-backed limits are signup 5/IP/hour, login 20/IP/15 minutes, combined
+authentication 10/username/15 minutes, and planner writes 120/account/minute.
+IP/username rate keys are hashed. Expired sessions and rate keys are incrementally
+deleted in batches of 100 on authentication and planner writes; an idle service
+retains expired rows until the next such request, but expired sessions never
+authorize access. Large public deployments need edge-level abuse controls and
+monitoring in addition to these application limits.
+
+**Unsupported:** password reset/recovery, email verification, MFA, changing
+credentials, a session-management screen, and self-service account deletion.
+No email is collected and a forgotten password cannot be recovered. Future
+credential-change flows must revoke **all** of the user's sessions. Treat account
+mode as a basic personal service, not a complete public identity platform.
+
+**Retention and deletion:** account data is retained until explicitly erased;
+there is no inactivity purge. Settings erases the account planner but not the user
+or other sessions. An operator must verify ownership out of band before deleting
+a specific user's row; foreign keys cascade to sessions/planner. Never identify
+an account to delete solely from a claimed username, and never delete real
+production users in a smoke test. Deleted data may remain in D1 recovery history
+for the configured retention period.
+
+**Backups and recovery:** keep user-exported JSON backups and configure/verify
+[D1 Time Travel](https://developers.cloudflare.com/d1/reference/time-travel/)
+retention for the account's Cloudflare plan. Test an operator-led restore on a
+separate database before using it during an incident; restoring an entire
+database can restore previously revoked sessions, so invalidate sessions after
+a recovery. There is no app-managed scheduled backup or automated restore.
+Account records are not end-to-end encrypted. Logs deliberately exclude
+credentials, cookies, tokens, request bodies and attendance.
 
 ## Behavior and architecture
 
@@ -75,7 +217,9 @@ in previews. GitHub Actions runs the local quality gates but does not deploy.
   reminders, strategic week labels, and reviewed/undoable schedule suggestions.
 - **Settings:** typed policy validation and recalculation preview; fixed IANA
   timezone; complete JSON backups; attendance-only CSV; reviewed atomic import;
-  explicit local deletion; and persistent-storage requests.
+  explicit local/account-planner deletion; and local persistent-storage requests.
+- **Account:** signup/login/logout, cross-device planner persistence, explicit
+  local-data import, and account/local separation.
 
 `src/domain/` contains pure, reference-date-driven civil-date, policy, projection,
 and planning modules. The typed `PolicyFormula` registry provides validation,
@@ -86,7 +230,9 @@ preserves commitments, favors fewer additions and earlier dates, and is locally
 minimal, **not globally optimal**. The search runs in a worker so calendar and
 navigation interaction are not blocked.
 
-`src/data/` is the Dexie transaction boundary. Each date has a revision, including
+`src/data/model.ts` contains the shared mutation rules; `repository.ts` is the
+Dexie transaction boundary and `remote-repository.ts` calls the account API.
+Each date has a revision, including
 deletion tombstones, and dataset replacement advances a generation. Stale edits
 are rejected rather than overwritten; full-plan previews also check the dataset
 revision. Dexie live queries propagate same-origin tab changes. Failed edits
@@ -120,6 +266,17 @@ full-horizon suggestion verification, same-count edits, stale-tab conflicts,
 atomic quota failure, backups, migration success/failure, calendar painting and
 keyboard alternatives, 320px reflow, offline reload and exports.
 
+The account suite runs against real local Pages Functions and an isolated D1
+database, covering credentials, session cookies, owner isolation, CSRF rejection,
+input/body limits, throttling, cloud revision conflicts and reviewed local import.
+On September 20, 2026, the separate staging Pages deployment also completed
+HTTPS signup, policy and attendance saves, reload, login in an independent
+browser, and signout/revocation. Both remote schemas were migrated and inspected;
+only disposable preview accounts were used and were removed afterward.
+Production readiness, API routing, security headers and the account UI were
+checked without creating production user records. These checks do not cover
+unsupported account recovery or replace the physical-device gates below.
+
 A measured local baseline on macOS ARM64 with Chromium `153.0.8010.12` used
 1,827 daily records and a 52-week horizon. Both desktop and Pixel 7 emulation
 recorded 64 ms for a saved edit plus dashboard/forecast recalculation and 3 ms
@@ -146,10 +303,12 @@ Before a public release:
    during editing, and verify older-tab migration behavior before activating
    any new schema. Playwright WebKit's offline inspection is not a substitute
    for a real iOS/Safari offline test.
-3. Smoke-test the stable production origin separately. Confirm preview data is
-   isolated and that network requests contain only application resources, never
-   attendance or notes. Verify manual backup transfer before changing domains.
+3. Smoke-test the stable production origin separately without synthetic writes
+   to production. Confirm preview D1 is isolated, API readiness and deployed
+   bindings are correct, and guest mode never transmits attendance or notes.
+   Exercise real signup/login/save/logout and HTTPS cookies in staging, including
+   browser reload, another device, account switching and offline failures.
+   Verify manual backup transfer before changing domains.
 
-There are no scheduled notifications when the site is closed. Accounts,
-cross-device sync, native-data imports, employer-specific leave exemptions, and
-historical policy versions remain out of scope.
+There are no scheduled notifications when the site is closed. Native-data imports,
+employer-specific leave exemptions and historical policy versions remain out of scope.
