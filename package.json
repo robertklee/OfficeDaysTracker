@@ -8,9 +8,14 @@
   },
   "scripts": {
     "dev": "vite --host 127.0.0.1",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && tsc -p tsconfig.server.json && vite build",
     "preview": "vite preview --host 127.0.0.1",
-    "deploy": "wrangler deploy",
+    "deploy": "wrangler pages deploy dist",
+    "cf:dev": "npm run build && wrangler pages dev dist --port 8788",
+    "db:local": "wrangler d1 migrations apply DB --local",
+    "db:remote": "wrangler d1 migrations apply DB --remote",
+    "db:preview": "wrangler d1 migrations apply DB --remote --env preview",
+    "test:accounts": "playwright test --config playwright.accounts.config.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "format": "prettier --write src tests *.ts *.json",
@@ -25,6 +30,7 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260920.1",
     "@playwright/test": "^1.55.0",
     "@types/node": "^22.18.0",
     "@types/react": "^19.1.12",

@@ -24,11 +24,16 @@ export default defineConfig({
       },
       workbox: {
         navigateFallback: '/index.html',
+        navigateFallbackDenylist: [/^\/api(?:\/|$)/],
         globPatterns: ['**/*.{js,css,html,png,svg,woff2}'],
         cleanupOutdatedCaches: true,
       },
     }),
   ],
+  server: {
+    proxy: { '/api': 'http://127.0.0.1:8788' },
+  },
+  preview: { proxy: {} },
   build: {
     rollupOptions: {
       output: {

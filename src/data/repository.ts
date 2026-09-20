@@ -1,15 +1,27 @@
 import Dexie, { type Table } from 'dexie';
 import {
   backupSchema,
-  civilDateSchema,
-  emptyDataset,
   entrySchema,
-  type Dataset,
   type Entry,
-  type EntryInput,
   type Policy,
   type Preferences,
 } from '../domain/schema';
+import {
+  applyAction,
+  type Action,
+  type Change,
+  type EditAction,
+  type StoredSnapshot,
+} from './model';
+export { ConflictError, toInput } from './model';
+export type {
+  Action,
+  Change,
+  EditAction,
+  SettingsAction,
+  ReplaceAction,
+  StoredSnapshot,
+} from './model';
 
 export type Row = { date: string; revision: number; value: Entry | null };
 export type Meta = {
@@ -19,33 +31,6 @@ export type Meta = {
   policy: Policy | null;
   preferences: Preferences;
 };
-export type StoredSnapshot = {
-  dataset: Dataset;
-  revisions: Record<string, number>;
-  revision: number;
-  generation: number;
-};
-export type Change = {
-  date: string;
-  expectedRevision: number;
-  value: EntryInput | null;
-  restoreRevision?: number;
-  restoreCreatedAt?: string;
-};
-export type EditAction = {
-  type: 'edit';
-  generation: number;
-  changes: Change[];
-  expectedDatasetRevision?: number;
-};
-export type SettingsAction = {
-  type: 'settings';
-  expectedRevision: number;
-  policy: Policy;
-  preferences: Preferences;
-};
-export type ReplaceAction = { type: 'replace'; expectedRevision: number; dataset: Dataset };
-export type Action = EditAction | SettingsAction | ReplaceAction;
 
 const initialMeta = (): Meta => ({
   id: 'state',
@@ -82,14 +67,6 @@ export class PlannerDB extends Dexie {
   }
 }
 
-export class ConflictError extends Error {
-  constructor() {
-    super(
-      'This data changed in another tab. Your edit was not saved. Export or discard the pending edit, then review the latest data before trying again.',
-    );
-  }
-}
-
 export class Repository {
   constructor(readonly db: PlannerDB) {}
 
@@ -114,90 +91,37 @@ export class Repository {
 
   async perform(action: Action, now = new Date().toISOString()): Promise<EditAction | null> {
     return this.db.transaction('rw', this.db.rows, this.db.meta, async () => {
-      const meta = (await this.db.meta.get('state')) ?? initialMeta();
-      if (action.type === 'edit') {
-        if (meta.generation !== action.generation) throw new ConflictError();
-        if (
-          action.expectedDatasetRevision !== undefined &&
-          meta.revision !== action.expectedDatasetRevision
-        )
-          throw new ConflictError();
-        if (new Set(action.changes.map((change) => change.date)).size !== action.changes.length)
-          throw new Error('Duplicate dates in one edit.');
-        const undo: Change[] = [];
-        for (const change of action.changes) {
-          civilDateSchema.parse(change.date);
-          const previous = await this.db.rows.get(change.date);
-          if ((previous?.revision ?? 0) !== change.expectedRevision) throw new ConflictError();
-          if (change.value && change.value.date !== change.date)
-            throw new Error('Entry date does not match its key.');
-          const prevValue = previous?.value ?? null;
-          const same =
-            change.value === null
-              ? prevValue === null
-              : prevValue !== null &&
-                ['type', 'status', 'priority', 'notes'].every(
-                  (key) =>
-                    prevValue[key as keyof Entry] === change.value?.[key as keyof EntryInput],
-                );
-          if (same) continue;
-          const revision = (previous?.revision ?? 0) + 1;
-          const value = change.value
-            ? entrySchema.parse({
-                ...change.value,
-                revision,
-                createdAt: change.restoreCreatedAt ?? prevValue?.createdAt ?? now,
-                updatedAt: now,
-              })
-            : null;
-          await this.db.rows.put({ date: change.date, revision, value });
-          undo.push({
-            date: change.date,
-            expectedRevision: revision,
-            value: prevValue ? toInput(prevValue) : null,
-            restoreRevision: previous?.revision ?? 0,
-            restoreCreatedAt: prevValue?.createdAt,
-          });
-        }
-        if (!undo.length) return null;
-        await this.db.meta.put({ ...meta, revision: meta.revision + 1 });
-        return { type: 'edit', generation: meta.generation, changes: undo };
-      }
-      if (meta.revision !== action.expectedRevision) throw new ConflictError();
-      if (action.type === 'settings') {
-        const valid = backupSchema.parse({
-          ...emptyDataset(),
-          policy: action.policy,
-          preferences: action.preferences,
-        });
-        await this.db.meta.put({
-          ...meta,
-          policy: valid.policy,
-          preferences: valid.preferences,
-          revision: meta.revision + 1,
-        });
-      } else {
-        const dataset = backupSchema.parse(action.dataset);
+      const current = await this.read();
+      const { snapshot, inverse, changedDates } = applyAction(current, action, now);
+      if (snapshot === current) return null;
+      const records = new Map(snapshot.dataset.records.map((entry) => [entry.date, entry]));
+      if (action.type === 'replace') {
         await this.db.rows.clear();
         await this.db.rows.bulkPut(
-          dataset.records.map((value) => ({ date: value.date, revision: value.revision, value })),
+          snapshot.dataset.records.map((value) => ({
+            date: value.date,
+            revision: value.revision,
+            value,
+          })),
         );
-        await this.db.meta.put({
-          ...meta,
-          policy: dataset.policy,
-          preferences: dataset.preferences,
-          revision: meta.revision + 1,
-          generation: meta.generation + 1,
-        });
+      } else {
+        for (const date of changedDates)
+          await this.db.rows.put({
+            date,
+            revision: snapshot.revisions[date],
+            value: records.get(date) ?? null,
+          });
       }
-      return null;
+      await this.db.meta.put({
+        id: 'state',
+        policy: snapshot.dataset.policy,
+        preferences: snapshot.dataset.preferences,
+        revision: snapshot.revision,
+        generation: snapshot.generation,
+      });
+      return inverse;
     });
   }
-}
-
-export function toInput(entry: Entry): EntryInput {
-  const { date, type, status, priority, notes } = entry;
-  return { date, type, status, priority, notes };
 }
 
 export function advanceUndoStack(
@@ -224,7 +148,7 @@ export function advanceUndoStack(
 
 export function editAction(
   snapshot: StoredSnapshot,
-  values: { date: string; value: EntryInput | null }[],
+  values: Pick<Change, 'date' | 'value'>[],
 ): EditAction {
   return {
     type: 'edit',
