@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { NavLink, Navigate, Route, Routes } from 'react-router-dom';
+import { NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import { useStore } from './store';
 import { PolicyForm } from '../components/PolicyForm';
@@ -7,6 +7,8 @@ import { Calendar } from '../features/calendar/Calendar';
 import { Dashboard } from '../features/dashboard/Dashboard';
 import { BackupSettings, Settings } from '../features/settings/Settings';
 import { Dialog } from '../components/Dialog';
+import { Account } from '../features/account/Account';
+import { useAccount } from './account';
 
 interface InstallEvent extends Event {
   prompt(): Promise<void>;
@@ -14,7 +16,7 @@ interface InstallEvent extends Event {
 }
 
 function PWAStatus() {
-  const { saving, pending } = useStore();
+  const { saving, pending, isAccount } = useStore();
   const [online, setOnline] = useState(navigator.onLine);
   const [install, setInstall] = useState<InstallEvent | null>(null);
   const [installed, setInstalled] = useState(
@@ -63,11 +65,15 @@ function PWAStatus() {
   return (
     <div className="pwa-status">
       <span>
-        {online
-          ? offlineReady || navigator.serviceWorker?.controller
-            ? 'Ready for offline use'
-            : 'Online · preparing offline shell'
-          : 'Offline · working on this browser'}{' '}
+        {isAccount
+          ? online
+            ? 'Account mode · online connection required'
+            : 'Offline · account storage unavailable'
+          : online
+            ? offlineReady || navigator.serviceWorker?.controller
+              ? 'Ready for offline use'
+              : 'Online · preparing offline shell'
+            : 'Offline · working on this browser'}{' '}
         · {installed ? 'Installed' : 'Installation optional'}
       </span>
       {install && (
@@ -99,8 +105,8 @@ function PWAStatus() {
       {confirmUpdate && (
         <Dialog title="Reload to update?" onClose={() => setConfirmUpdate(false)}>
           <p>
-            Saved attendance stays in this browser. Unfinished ranges, notes, and policy drafts will
-            be discarded. Cancel to finish editing first.
+            Saved attendance stays in {isAccount ? 'your account' : 'this browser'}. Unfinished
+            ranges, notes, and policy drafts will be discarded. Cancel to finish editing first.
           </p>
           <div className="button-row">
             <button
@@ -130,7 +136,9 @@ function PWAStatus() {
 
 export function App() {
   const store = useStore();
-  const { snapshot, error, pending, saving, migrationRequired } = store;
+  const account = useAccount();
+  const route = useLocation();
+  const { snapshot, error, pending, saving, migrationRequired, isAccount } = store;
   const configured = !!snapshot?.dataset.policy;
   return (
     <div className="app-shell">
@@ -155,10 +163,17 @@ export function App() {
           <NavLink to="/settings">
             <span aria-hidden="true">⚙</span>Settings
           </NavLink>
+          <NavLink to="/account">
+            <span aria-hidden="true">@</span>Account
+          </NavLink>
         </nav>
         <div className="sidebar-note">
           <strong>Private by design.</strong>
-          <p>Your attendance lives on this browser. No account required.</p>
+          <p>
+            {isAccount
+              ? 'Your account planner is saved in Cloudflare D1.'
+              : 'Your attendance lives on this browser. No account required.'}
+          </p>
           <span className="small">
             Plan with confidence.
             <br />
@@ -168,21 +183,41 @@ export function App() {
       </aside>
       <div className="workspace">
         <header className="topbar">
-          <span>Personal workspace</span>
+          <span>{account.user ? `${account.user.displayName}'s account` : 'Local workspace'}</span>
           <div className={`saved-status ${error ? 'failed' : ''}`} role="status">
             {saving
               ? 'Saving...'
               : error
                 ? 'Storage needs attention'
                 : snapshot
-                  ? 'Saved on this browser'
-                  : 'Opening browser storage...'}
+                  ? isAccount
+                    ? 'Saved to your account'
+                    : 'Saved on this browser'
+                  : isAccount
+                    ? 'Opening account storage...'
+                    : 'Opening browser storage...'}
           </div>
         </header>
         <main id="main">
+          {account.error && !isAccount && route.pathname !== '/account' && (
+            <section className="notice" role="status">
+              <h2>Account session unavailable</h2>
+              <p>{account.error}</p>
+              <p>
+                Only the separate local planner is open. Account records have not been loaded or
+                deleted. <NavLink to="/account">Review account connection</NavLink>
+              </p>
+            </section>
+          )}
           {error && (
             <section className="notice error" role="alert">
-              <h2>{pending ? 'Your edit is not saved' : 'Unable to evaluate stored data'}</h2>
+              <h2>
+                {pending
+                  ? isAccount
+                    ? 'Account save not confirmed'
+                    : 'Your edit is not saved'
+                  : 'Unable to evaluate stored data'}
+              </h2>
               <p>{error}</p>
               <div className="button-row">
                 <button onClick={store.retry} disabled={saving}>
@@ -197,7 +232,9 @@ export function App() {
               </div>
             </section>
           )}
-          {migrationRequired ? (
+          {route.pathname === '/account' ? (
+            <Account />
+          ) : migrationRequired ? (
             <section className="card">
               <h1>Reload required</h1>
               <p>
@@ -212,8 +249,10 @@ export function App() {
               <h1>Opening your planner</h1>
               <p>
                 {error
-                  ? 'Browser storage is unavailable. Resolve the error above before recording attendance.'
-                  : 'Reading this browser’s local records...'}
+                  ? 'Storage is unavailable. Resolve the error above before recording attendance.'
+                  : isAccount
+                    ? 'Reading your account records...'
+                    : 'Reading this browser’s local records...'}
               </p>
             </section>
           ) : !configured ? (

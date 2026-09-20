@@ -7,7 +7,17 @@ import { useStore } from '../app/store';
 import { useDraftWarning } from '../app/useDraftWarning';
 
 export function PolicyForm({ setup = false }: { setup?: boolean }) {
-  const { snapshot, today, timeZone, perform, pending, saving, error: storageError } = useStore();
+  const {
+    snapshot,
+    today,
+    timeZone,
+    perform,
+    pending,
+    saving,
+    isAccount,
+    storageLabel,
+    error: storageError,
+  } = useStore();
   const [draft, setDraft] = useState<Policy>(
     () => snapshot?.dataset.policy ?? defaultPolicy(today, timeZone),
   );
@@ -60,10 +70,12 @@ export function PolicyForm({ setup = false }: { setup?: boolean }) {
     >
       {setup && (
         <div className="notice">
-          <strong>Your browser, your data.</strong> No account or attendance server. Browser
-          eviction, private browsing, clearing site data, or switching browsers can lose your
-          records. Keep JSON backups. The suggested best-8-of-12 average policy is only a starting
-          point, not a claim about your employer.
+          <strong>{isAccount ? 'Your account planner.' : 'Your browser, your data.'}</strong>{' '}
+          {isAccount
+            ? 'This planner saves to your account in Cloudflare D1 and requires an internet connection.'
+            : 'No account is required. Browser eviction, private browsing, clearing site data, or switching browsers can lose your local records.'}{' '}
+          Keep JSON backups. The suggested best-8-of-12 average policy is only a starting point, not
+          a claim about your employer.
         </div>
       )}
       <div className="form-grid">
@@ -254,7 +266,7 @@ export function PolicyForm({ setup = false }: { setup?: boolean }) {
               ) {
                 setPreview(null);
                 setDirty(false);
-                setMessage('Policy confirmed and saved on this browser.');
+                setMessage(`Policy confirmed and saved ${storageLabel}.`);
               }
             }}
           >

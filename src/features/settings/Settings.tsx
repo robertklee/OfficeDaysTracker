@@ -12,7 +12,15 @@ import {
 } from '../backup/backup';
 
 export function BackupSettings() {
-  const { snapshot, perform, saving, pending, error: storageError } = useStore();
+  const {
+    snapshot,
+    perform,
+    saving,
+    pending,
+    isAccount,
+    storageLabel,
+    error: storageError,
+  } = useStore();
   const [review, setReview] = useState<{ dataset: Dataset; revision: number } | null>(null);
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [deleteText, setDeleteText] = useState('');
@@ -41,10 +49,12 @@ export function BackupSettings() {
   }
   return (
     <section className="card">
-      <h2>Backups & local data</h2>
+      <h2>Backups & {isAccount ? 'account' : 'local'} data</h2>
       <p>
-        Your records stay in this browser on this origin. JSON is a complete backup; CSV contains
-        attendance only and cannot restore settings.
+        {isAccount
+          ? 'Your records are saved in your account in Cloudflare D1.'
+          : 'Your records stay in this browser on this origin.'}{' '}
+        JSON is a complete backup; CSV contains attendance only and cannot restore settings.
       </p>
       <div className="button-row">
         <button onClick={exportJSON}>Export JSON backup</button>
@@ -73,6 +83,8 @@ export function BackupSettings() {
       <p className="muted">
         Import limit: 5 MB. Only RTO Planner web backups are supported. Native app imports and
         timezone guessing are intentionally not supported.
+        {isAccount &&
+          ' Account storage is limited to 1.5 MB including revision and undo metadata; larger imports will be rejected without changing saved data.'}
       </p>
       {error && (
         <p role="alert" className="error">
@@ -88,7 +100,7 @@ export function BackupSettings() {
           setDeleteDialog(true);
         }}
       >
-        Delete all local data
+        Delete all {isAccount ? 'account planner' : 'local'} data
       </button>
       {review && (
         <Dialog title="Review replacement backup" onClose={() => setReview(null)}>
@@ -100,11 +112,14 @@ export function BackupSettings() {
           </p>
           <p>
             This replacement is atomic and cannot be undone. Download a pre-replacement backup
-            first. Other open tabs will receive the replacement.
+            first.{' '}
+            {isAccount
+              ? 'Other devices receive the replacement when they refresh.'
+              : 'Other open tabs will receive the replacement.'}
           </p>
           {review.revision !== snapshot.revision && (
             <p role="alert" className="error">
-              Local data changed after import review. Cancel and review the file again.
+              Stored data changed after import review. Cancel and review the file again.
             </p>
           )}
           <div className="button-row">
@@ -121,7 +136,7 @@ export function BackupSettings() {
                   })
                 ) {
                   setReview(null);
-                  setMessage('Backup restored on this browser.');
+                  setMessage(`Backup restored ${storageLabel}.`);
                 }
               }}
             >
@@ -132,10 +147,16 @@ export function BackupSettings() {
         </Dialog>
       )}
       {deleteDialog && (
-        <Dialog title="Delete all local data?" onClose={() => setDeleteDialog(false)}>
+        <Dialog
+          title={`Delete all ${isAccount ? 'account planner' : 'local'} data?`}
+          onClose={() => setDeleteDialog(false)}
+        >
           <p>
-            This deletes all attendance, priorities, policy and preferences on this origin. Export a
-            backup first. This cannot be undone.
+            This deletes all attendance, priorities, policy and preferences{' '}
+            {isAccount
+              ? 'in your account, on every device. Your account and the separate local planner are retained'
+              : 'on this origin'}
+            . Export a backup first. This cannot be undone.
           </p>
           <label>
             Type DELETE to confirm
@@ -161,7 +182,7 @@ export function BackupSettings() {
                   setDeleteDialog(false);
               }}
             >
-              Permanently delete local data
+              Permanently delete {isAccount ? 'account planner' : 'local'} data
             </button>
             <button onClick={() => setDeleteDialog(false)}>Cancel</button>
           </div>
@@ -172,6 +193,7 @@ export function BackupSettings() {
 }
 
 export function Settings() {
+  const { isAccount } = useStore();
   const [storageMessage, setStorageMessage] = useState('');
   async function requestPersistence() {
     if (!navigator.storage?.persist) {
@@ -214,18 +236,21 @@ export function Settings() {
       <section className="card">
         <h2>Browser storage & privacy</h2>
         <p>
-          No accounts, tracking scripts, or server-side attendance processing. Cloudflare receives
-          ordinary hosting request metadata; visits are not invisible. Attendance and notes are
-          never put in URLs or sent to an attendance API.
+          No tracking scripts. In local mode attendance stays in your browser. In account mode,
+          attendance, notes and settings are sent to the same-origin API and stored in Cloudflare
+          D1. They are not end-to-end encrypted or kept in an offline account cache. Cloudflare also
+          receives ordinary hosting request metadata; visits are not invisible.
         </p>
         <p>
           Clearing site data, private browsing, browser eviction, or changing browsers can remove or
           separate your records. Production, preview, pages.dev, and custom-domain addresses have
           independent storage. Move data with JSON export/import.
         </p>
-        <button onClick={() => void requestPersistence()}>
-          Request persistent browser storage
-        </button>
+        {!isAccount && (
+          <button onClick={() => void requestPersistence()}>
+            Request persistent browser storage
+          </button>
+        )}
         <p role="status">{storageMessage}</p>
         <h3>Reminders, not background notifications</h3>
         <p>

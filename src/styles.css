@@ -140,6 +140,21 @@ p:last-child {
   gap: 10px;
   flex-wrap: wrap;
 }
+.account-form {
+  display: grid;
+  gap: 16px;
+  max-width: 440px;
+  margin-top: 24px;
+}
+.topbar > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.saved-status {
+  flex-shrink: 0;
+  margin-left: 12px;
+}
 .app-shell {
   display: flex;
   min-height: 100vh;
@@ -825,7 +840,7 @@ footer p {
   }
   .sidebar nav {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     gap: 8px;
   }
   .sidebar nav a {

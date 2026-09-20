@@ -44,7 +44,7 @@ function focusRenderedDate(grid: HTMLDivElement | null, date: string) {
 
 export function Calendar() {
   const store = useStore();
-  const { snapshot, today, saving, pending, perform, error } = store;
+  const { snapshot, today, saving, pending, perform, error, storageLabel } = store;
   const [month, setMonth] = useState(today);
   const [focusDate, setFocusDate] = useState(today);
   const [tool, setTool] = useState<Tool>('office');
@@ -123,7 +123,7 @@ export function Calendar() {
   async function save(action: EditAction) {
     if (await perform(action)) {
       setMessage(
-        `${action.changes.length} date${action.changes.length === 1 ? '' : 's'} saved on this browser.`,
+        `${action.changes.length} date${action.changes.length === 1 ? '' : 's'} saved ${storageLabel}.`,
       );
       setSelection(null);
       setDetail((current) => (current === detail ? null : current));

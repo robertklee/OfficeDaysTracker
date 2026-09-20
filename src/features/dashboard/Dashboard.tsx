@@ -19,7 +19,7 @@ const stateLabel = {
 };
 
 export function Dashboard() {
-  const { snapshot, today, edit, perform, saving, pending, error } = useStore();
+  const { snapshot, today, edit, perform, saving, pending, error, storageLabel } = useStore();
   const [preview, setPreview] = useState<{
     suggestion: Suggestion;
     action: EditAction;
@@ -166,7 +166,7 @@ export function Dashboard() {
                     },
                   ])
                 )
-                  setMessage('Today saved on this browser.');
+                  setMessage(`Today saved ${storageLabel}.`);
               }}
             >
               {type === 'office' ? 'In the office' : 'Working remotely'}

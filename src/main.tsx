@@ -2,7 +2,7 @@ import React, { Component, type ErrorInfo, type ReactNode } from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { App } from './app/App';
-import { StoreProvider } from './app/store';
+import { AccountProvider } from './app/account';
 import './styles.css';
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
@@ -33,9 +33,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <ErrorBoundary>
       <BrowserRouter>
-        <StoreProvider>
+        <AccountProvider>
           <App />
-        </StoreProvider>
+        </AccountProvider>
       </BrowserRouter>
     </ErrorBoundary>
   </React.StrictMode>,

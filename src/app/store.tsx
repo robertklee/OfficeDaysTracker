@@ -3,6 +3,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -21,10 +22,15 @@ import {
 } from '../data/repository';
 import { download, serializeBackup } from '../features/backup/backup';
 import { useDraftWarning } from './useDraftWarning';
+import { type User } from '../data/account-schema';
+import { type PlannerRepository } from '../data/model';
+import { RemoteRepository } from '../data/remote-repository';
 
 const db = new PlannerDB();
-const repository = new Repository(db);
+export const localRepository = new Repository(db);
 type Store = {
+  isAccount: boolean;
+  storageLabel: string;
   snapshot: StoredSnapshot | null;
   today: string;
   timeZone: string;
@@ -42,7 +48,17 @@ type Store = {
 };
 const Context = createContext<Store | null>(null);
 
-export function StoreProvider({ children }: { children: ReactNode }) {
+export function StoreProvider({
+  children,
+  account,
+}: {
+  children: ReactNode;
+  account: User | null;
+}) {
+  const repository = useMemo<PlannerRepository>(
+    () => (account ? new RemoteRepository(account.id) : localRepository),
+    [account],
+  );
   const [snapshot, setSnapshot] = useState<StoredSnapshot | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState<Action | null>(null);
@@ -51,6 +67,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [undoStack, setUndoStack] = useState<EditAction[]>([]);
   const [watchKey, setWatchKey] = useState(0);
   const busy = useRef(false);
+  const pendingAction = useRef<Action | null>(null);
+  const readVersion = useRef(0);
   const pendingUndo = useRef(false);
   const [instant, setInstant] = useState(() => new Date().toISOString());
   const timeZone =
@@ -70,6 +88,43 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     };
   }, []);
   useEffect(() => {
+    if (account) {
+      let active = true;
+      let reading = false;
+      const refresh = async () => {
+        if (reading || busy.current || pendingAction.current) return;
+        reading = true;
+        const version = readVersion.current;
+        try {
+          const value = await repository.read();
+          if (!active || version !== readVersion.current) return;
+          setSnapshot((previous) => {
+            if (previous && previous.revision > value.revision) return previous;
+            if (previous && previous.generation !== value.generation) setUndoStack([]);
+            return value;
+          });
+          setError(null);
+        } catch (cause) {
+          if (active && version === readVersion.current)
+            setError(cause instanceof Error ? cause.message : 'Unable to read account storage.');
+        } finally {
+          reading = false;
+        }
+      };
+      const onFocus = () => {
+        void refresh();
+      };
+      void refresh();
+      const timer = setInterval(onFocus, 30000);
+      window.addEventListener('focus', onFocus);
+      window.addEventListener('online', onFocus);
+      return () => {
+        active = false;
+        clearInterval(timer);
+        window.removeEventListener('focus', onFocus);
+        window.removeEventListener('online', onFocus);
+      };
+    }
     const subscription = liveQuery(() => repository.read()).subscribe({
       next: (value) => {
         setSnapshot((previous) => {
@@ -97,12 +152,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       db.on('versionchange').unsubscribe(versionChange);
       db.on('blocked').unsubscribe(blocked);
     };
-  }, [watchKey]);
+  }, [watchKey, repository, account]);
 
   const perform = useCallback(
     async (action: Action, isUndo = false) => {
       if (busy.current || migrationRequired) return false;
       busy.current = true;
+      readVersion.current++;
+      pendingAction.current = action;
       pendingUndo.current = isUndo;
       setSaving(true);
       setError(null);
@@ -116,20 +173,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           return action.type === 'replace' ? [] : inverse ? [...stack, inverse].slice(-30) : stack;
         });
         setSnapshot(await repository.read());
+        pendingAction.current = null;
         setPending(null);
         return true;
       } catch (cause) {
         if (committed) {
+          pendingAction.current = null;
           setPending(null);
           setError(
-            'The write committed, but browser storage could not be reloaded. Retry storage to refresh the saved data before making more edits. Do not repeat the original action.',
+            'The write committed, but storage could not be reloaded. Retry storage to refresh the saved data before making more edits. Do not repeat the original action.',
           );
           return false;
         }
         setError(
           cause instanceof Error
-            ? `Not saved. ${cause.name === 'QuotaExceededError' ? 'Browser storage is full. Free space, retry, or export your unsaved changes.' : cause.message}`
-            : 'Not saved. Browser storage failed. Retry or export your unsaved changes.',
+            ? `${account ? 'Save not confirmed.' : 'Not saved.'} ${cause.name === 'QuotaExceededError' ? 'Browser storage is full. Free space, retry, or export your unsaved changes.' : cause.message}`
+            : 'Save not confirmed. Storage failed. Retry or export your pending changes.',
         );
         return false;
       } finally {
@@ -137,7 +196,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setSaving(false);
       }
     },
-    [migrationRequired],
+    [migrationRequired, repository, account],
   );
 
   const edit = async (values: { date: string; value: EntryInput | null }[]) =>
@@ -178,6 +237,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   return (
     <Context.Provider
       value={{
+        isAccount: !!account,
+        storageLabel: account ? 'to your account' : 'on this browser',
         snapshot,
         today,
         timeZone,
@@ -192,8 +253,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         retry,
         exportPending,
         discard: () => {
+          pendingAction.current = null;
           setPending(null);
           setError(null);
+          setWatchKey((value) => value + 1);
         },
       }}
     >
