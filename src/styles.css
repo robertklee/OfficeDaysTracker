@@ -607,6 +607,101 @@ main {
 .week-footnote a {
   color: var(--muted);
 }
+.week-outlook {
+  padding: 24px 28px;
+}
+.week-outlook .eyebrow {
+  margin-bottom: 6px;
+}
+.week-outlook .section-heading {
+  margin-bottom: 8px;
+}
+.outlook-confidence {
+  padding: 5px 10px;
+  border-radius: 99px;
+  background: var(--warning-bg);
+  color: var(--warning);
+  font-size: 0.75rem;
+  font-weight: 650;
+  white-space: nowrap;
+}
+.outlook-explanation,
+.outlook-caveat {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+.outlook-explanation {
+  margin-bottom: 20px;
+}
+.outlook-caveat {
+  margin: 16px 0 0;
+}
+.outlook-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+}
+.outlook-tile {
+  min-width: 0;
+  min-height: 152px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 10px;
+  text-align: left;
+  background: var(--remote-bg);
+  border-color: #c2ddd7;
+  color: var(--ink);
+  font-weight: 400;
+}
+.outlook-tile.needed {
+  background: var(--office-bg);
+  border-color: #c4d1f9;
+}
+.outlook-tile[aria-pressed='true'] {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.outlook-tile:hover:not(:disabled) {
+  background: var(--surface);
+  border-color: var(--accent);
+}
+.outlook-date {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 0.73rem;
+}
+.outlook-tag {
+  align-self: flex-start;
+  padding: 3px 7px;
+  border-radius: 5px;
+  background: #d9eeea;
+  color: var(--remote);
+  font-size: 0.68rem;
+  font-weight: 650;
+}
+.outlook-tile.needed .outlook-tag {
+  background: #dce5ff;
+  color: var(--office);
+}
+.outlook-count {
+  margin-top: auto;
+  color: var(--ink);
+  font-size: 0.7rem;
+}
+.outlook-count strong {
+  font-size: 1.55rem;
+  line-height: 1;
+}
+.outlook-minimum {
+  color: var(--muted);
+  font-size: 0.7rem;
+}
 .week-secondary {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1125,6 +1220,9 @@ footer a {
   margin: 80px auto;
 }
 @media (max-width: 1000px) {
+  .outlook-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
   .settings-layout {
     grid-template-columns: 1fr;
     gap: 0;
@@ -1226,6 +1324,9 @@ footer a {
   }
 }
 @media (max-width: 650px) {
+  .outlook-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
   .week-grid {
     grid-template-columns: 1fr;
     gap: 8px;
@@ -1305,6 +1406,15 @@ footer a {
   }
 }
 @media (max-width: 480px) {
+  .week-outlook {
+    padding: 20px;
+  }
+  .week-outlook .section-heading {
+    gap: 8px;
+  }
+  .outlook-tile {
+    padding: 10px;
+  }
   h1 {
     font-size: 2.25rem;
     letter-spacing: -1.2px;

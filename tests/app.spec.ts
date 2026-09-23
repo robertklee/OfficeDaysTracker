@@ -1,5 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
+import { addDays, dateRange } from '../src/domain/dates';
+import { type Dataset } from '../src/domain/schema';
 
 async function setup(page: Page, kind = 'rolling', weekStart = '1') {
   await page.clock.install({ time: new Date('2026-03-24T19:00:00Z') });
@@ -243,6 +245,97 @@ test('weekly recommendations are counts only; quick entry saves actuals, plans a
   await page.getByRole('link', { name: 'Calendar', exact: true }).click();
   await expect(day(page, '2026-03-23')).toHaveAttribute('aria-label', /Office, actual/);
   await expect(day(page, '2026-03-25')).toHaveAttribute('aria-label', /Office, planned/);
+});
+
+test('future-week cards distinguish a needed week from one that can be skipped', async ({
+  page,
+}) => {
+  await page.clock.install({ time: new Date('2026-03-30T19:00:00Z') });
+  await page.goto('/dashboard');
+  await page.getByLabel('Week starts on').selectOption('1');
+  await page.getByLabel('Calculation').selectOption('qualifying');
+  await page.getByLabel('Best weeks counted').fill('1');
+  await page.getByLabel('Weeks in window').fill('2');
+  await page.getByLabel('Start date', { exact: true }).fill('2026-03-30');
+  await page.getByRole('button', { name: 'Preview policy', exact: true }).click();
+  await page.getByRole('button', { name: 'Confirm policy & start' }).click();
+  await expect(page.getByRole('heading', { name: 'This week', exact: true })).toBeVisible();
+  for (const date of ['2026-03-30', '2026-03-31', '2026-04-01']) await day(page, date).click();
+  await expect(day(page, '2026-04-01')).toHaveAttribute('aria-label', /Office, Planned/);
+  await expect(page.locator('.saved-status')).toHaveText('Saved in this browser');
+  await page.goto('/calendar');
+  await page.getByRole('button', { name: 'Remote', exact: true }).click();
+  await page.getByRole('checkbox', { name: 'Include weekends in ranges' }).click();
+  await expect(page.getByRole('checkbox', { name: 'Include weekends in ranges' })).toBeChecked();
+  await page.getByLabel('From', { exact: true }).fill('2026-04-06');
+  await page.getByLabel('Through', { exact: true }).fill('2026-04-12');
+  await page.getByRole('button', { name: 'Apply to range' }).click();
+  await expect(page.locator('.save-announcement')).toContainText('7 dates saved');
+  await page.getByRole('button', { name: 'Next month' }).click();
+  await expect(day(page, '2026-04-12')).toHaveAttribute('aria-label', /Remote, planned/);
+  await page.goto('/dashboard');
+  const cards = page.locator('.outlook-tile');
+  await expect(cards).toHaveCount(6);
+  await expect(cards.first()).toContainText('Flexible');
+  await expect(cards.first()).toContainText('Could skip this week');
+  await expect(cards.nth(1)).toContainText('Needed');
+  await expect(cards.nth(1)).toContainText('3 office days suggested');
+  await expect(page.getByText('May change', { exact: true })).toBeVisible();
+  await expect(page.getByText(/Conditional: earlier weeks and unplanned days/)).toBeVisible();
+  await cards.nth(1).click();
+  await expect(page.getByText('Week of Apr 13, 2026', { exact: true })).toBeVisible();
+  const recommendation = page.getByRole('region', { name: 'Attendance for week of Apr 13, 2026' });
+  await expect(recommendation.getByText('At least 3 needed', { exact: true })).toBeVisible();
+  await expect(recommendation.getByText('3 more to plan', { exact: true })).toBeVisible();
+  await expect(cards.nth(1)).toHaveAttribute('aria-pressed', 'true');
+  await page.locator('summary').filter({ hasText: 'Upcoming weeks' }).click();
+  await expect(page.getByRole('row', { name: /Apr 13, 2026 Needed 3 3 3/ })).toBeVisible();
+});
+
+test('the outlook is marked fully planned only when no forecast days remain open', async ({
+  page,
+}) => {
+  await page.clock.install({ time: new Date('2026-03-30T19:00:00Z') });
+  await page.goto('/dashboard');
+  const first = '2026-03-30';
+  const dataset: Dataset = {
+    formatVersion: 1,
+    policy: {
+      kind: 'weekly',
+      n: 2,
+      windowWeeks: 4,
+      weekStart: 1,
+      startDate: first,
+      timeZone: 'America/Los_Angeles',
+    },
+    preferences: { includeWeekends: false },
+    records: dateRange(first, addDays(first, 90)).map((date, index) => ({
+      date,
+      type: index % 7 < 2 ? 'office' : 'remote',
+      status: index === 0 ? 'actual' : 'planned',
+      priority: 'normal',
+      notes: '',
+      revision: 1,
+      createdAt: '2026-03-30T00:00:00.000Z',
+      updatedAt: '2026-03-30T00:00:00.000Z',
+    })),
+  };
+  await page.getByLabel('Import JSON backup').setInputFiles({
+    name: 'planned-weeks.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(JSON.stringify(dataset)),
+  });
+  await page.getByRole('button', { name: 'Confirm replacement', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'This week', exact: true })).toBeVisible();
+  await expect(page.getByText('All days planned', { exact: true })).toBeVisible();
+  const firstWeek = page.locator('.outlook-tile').first();
+  await expect(firstWeek).toContainText('Needed');
+  await expect(firstWeek).toContainText('2 office days suggested');
+  await firstWeek.click();
+  await page.getByRole('button', { name: 'Clear', exact: true }).click();
+  await day(page, '2026-04-06').click();
+  await expect(page.getByText('May change', { exact: true })).toBeVisible();
+  await expect(firstWeek).toContainText('2 office days suggested');
 });
 
 test('new planners start on Sunday in both home and calendar', async ({ page }) => {

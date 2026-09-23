@@ -1,6 +1,7 @@
-import { addDays } from '../dates';
-import { forecast, type Snapshot } from '../projection';
-import { type Entry, policySchema } from '../schema';
+import { addDays, startOfWeek, weekday } from '../dates';
+import { formulas } from '../policies';
+import { forecast, type Forecast, type Snapshot } from '../projection';
+import { type Entry, policySchema, type Policy } from '../schema';
 
 export type Suggestion = {
   state: 'ready' | 'unnecessary' | 'conflict' | 'limited' | 'invalid';
@@ -13,6 +14,7 @@ export type WeeklyRecommendation = {
   weekStart: string;
   officeDays: number;
   additionalDays: number;
+  minimumDays: number;
 };
 export type WeeklyRecommendations = {
   state: Suggestion['state'];
@@ -20,23 +22,105 @@ export type WeeklyRecommendations = {
 };
 
 export function recommendWeeks(snapshot: Snapshot): WeeklyRecommendations {
-  const suggestion = suggest(snapshot);
-  if (suggestion.state !== 'ready' && suggestion.state !== 'unnecessary')
-    return { state: suggestion.state, weeks: [] };
+  const parsed = policySchema.safeParse(snapshot.policy);
+  const initial = forecast(snapshot);
+  if (!parsed.success || initial.state === 'invalid') return { state: 'invalid', weeks: [] };
+  if (initial.checkpoints.some((point) => !point.capacity.score?.met))
+    return { state: 'conflict', weeks: [] };
+  const policy = parsed.data;
+  const alreadyCovered = meetsAllCheckpoints(snapshot, []);
+  let additions: string[] = [];
+  if (!alreadyCovered) {
+    const requiredWeekdays =
+      policy.kind === 'weekdays' ? new Set<number>(policy.requiredDays) : null;
+    const committed = new Map(
+      initial.checkpoints.map((point) => [point.weekStart, point.committedDates.length]),
+    );
+    const eligibleDates = initial.availableDates.filter(
+      (date) => !requiredWeekdays || requiredWeekdays.has(weekday(date)),
+    );
+    const startCap = policy.kind === 'weekdays' ? policy.requiredDays.length : policy.n;
+    let feasible: string[] | null = null;
+    for (let cap = startCap; cap <= 7; cap++) {
+      const selected = new Map<string, number>();
+      const candidate = requiredWeekdays
+        ? eligibleDates
+        : eligibleDates.filter((date) => {
+            const start = startOfWeek(date, policy.weekStart);
+            const count = selected.get(start) ?? 0;
+            if (count >= Math.max(0, cap - (committed.get(start) ?? 0))) return false;
+            selected.set(start, count + 1);
+            return true;
+          });
+      if (meetsAllCheckpoints(snapshot, candidate)) {
+        feasible = candidate;
+        break;
+      }
+      if (requiredWeekdays) break;
+    }
+    if (!feasible) return { state: 'limited', weeks: [] };
+    additions = minimizeDates(snapshot, feasible);
+  }
   return {
-    state: suggestion.state,
-    weeks: forecast(snapshot).checkpoints.map((point) => {
-      const additionalDays = suggestion.dates.filter(
+    state: alreadyCovered ? 'unnecessary' : 'ready',
+    weeks: initial.checkpoints.map((point) => {
+      const additionalDays = additions.filter(
         (date) => date >= point.weekStart && date <= point.end,
       ).length;
       return {
         weekStart: point.weekStart,
         officeDays: point.committedDates.length + additionalDays,
         additionalDays,
+        minimumDays: minimumDaysForWeek(policy, initial, point.weekStart),
       };
     }),
   };
 }
+
+function minimumDaysForWeek(policy: Policy, outlook: Forecast, start: string): number {
+  const affected = outlook.checkpoints.filter((point) =>
+    point.capacity.weeks.some((week) => week.start === start),
+  );
+  for (let count = 0; count <= 7; count++) {
+    if (
+      affected.every(
+        (point) =>
+          formulas[policy.kind].evaluate(
+            policy,
+            point.capacity.weeks.map((week) =>
+              week.start === start
+                ? {
+                    ...week,
+                    count,
+                    missingDays: policy.kind === 'weekdays' ? policy.requiredDays.slice(count) : [],
+                  }
+                : week,
+            ),
+            point.capacity.eligibleCompleted,
+          ).met,
+      )
+    )
+      return count;
+  }
+  throw new Error('Unable to determine the minimum attendance for this week.');
+}
+
+function meetsAllCheckpoints(snapshot: Snapshot, dates: string[]): boolean {
+  return forecast({
+    ...snapshot,
+    records: [...snapshot.records, ...simulatedEntries(dates)],
+  }).checkpoints.every((point) => point.committed.score?.met);
+}
+
+function minimizeDates(snapshot: Snapshot, dates: string[]): string[] {
+  let remaining = dates;
+  for (let index = remaining.length - 1; index >= 0; index--) {
+    const candidate = remaining.filter((_, position) => position !== index);
+    if (meetsAllCheckpoints(snapshot, candidate)) remaining = candidate;
+  }
+  return remaining;
+}
+
 export function simulatedEntries(dates: readonly string[]): Entry[] {
   return dates.map((date) => ({
     date,
@@ -60,15 +144,7 @@ export function suggest(snapshot: Snapshot): Suggestion {
       alternatives: [],
       explanation: 'Unable to evaluate the policy.',
     };
-  const succeeds = (dates: string[]) => {
-    const result = forecast({
-      ...snapshot,
-      records: [...snapshot.records, ...simulatedEntries(dates)],
-    });
-    // Also preserve provisional targets when there is no formal checkpoint in the horizon.
-    return result.checkpoints.every((point) => point.committed.score?.met);
-  };
-  if (succeeds([]))
+  if (meetsAllCheckpoints(snapshot, []))
     return {
       state: 'unnecessary',
       dates: [],
@@ -97,12 +173,8 @@ export function suggest(snapshot: Snapshot): Suggestion {
   }
   // Begin with a proven feasible capacity plan; remove later days while preserving every checkpoint.
   // This deterministic deletion search is feasible and locally minimal, not globally optimal.
-  let dates = [...initial.availableDates];
-  for (let i = dates.length - 1; i >= 0; i--) {
-    const candidate = dates.filter((_, index) => index !== i);
-    if (succeeds(candidate)) dates = candidate;
-  }
-  if (!succeeds(dates))
+  const dates = minimizeDates(snapshot, [...initial.availableDates]);
+  if (!meetsAllCheckpoints(snapshot, dates))
     return {
       state: 'limited',
       dates: [],

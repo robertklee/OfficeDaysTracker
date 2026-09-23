@@ -58,26 +58,32 @@ describe('weekly count recommendations', () => {
       const before = JSON.stringify(snapshot);
       const result = recommendWeeks(snapshot);
       expect(result.state).toBe('ready');
-      expect(result.weeks[0]).toEqual({ weekStart: first, officeDays: 3, additionalDays: 1 });
-      expect(result.weeks.every((week) => week.officeDays === 3)).toBe(true);
+      expect(result.weeks[0]).toEqual({
+        weekStart: first,
+        officeDays: 3,
+        additionalDays: 1,
+        minimumDays: 3,
+      });
+      expect(result.weeks.every((week) => week.officeDays === 3 && week.minimumDays === 3)).toBe(
+        true,
+      );
       expect(Object.keys(result)).toEqual(['state', 'weeks']);
       expect(JSON.stringify(snapshot)).toBe(before);
     },
   );
 
-  it('aggregates a verified rolling-average plan rather than using the nominal weekly minimum', () => {
+  it('keeps a feasible rolling-average plan near the weekly frequency', () => {
     const snapshot = {
       policy: { ...rolling, mode: 'average' as const, startDate: today },
       records: [],
       today,
     };
-    const suggestion = suggest(snapshot);
     const result = recommendWeeks(snapshot);
-    expect(result.weeks.some((week) => week.officeDays > rolling.n)).toBe(true);
-    expect(result.weeks.reduce((sum, week) => sum + week.additionalDays, 0)).toBe(
-      suggestion.dates.length,
+    expect(result.weeks.every((week) => week.officeDays <= rolling.n)).toBe(true);
+    const selected = result.weeks.flatMap((week) =>
+      dateRange(week.weekStart, addDays(week.weekStart, 6)).slice(0, week.additionalDays),
     );
-    const verified = forecast({ ...snapshot, records: simulatedEntries(suggestion.dates) });
+    const verified = forecast({ ...snapshot, records: simulatedEntries(selected) });
     expect(
       verified.checkpoints.every(
         (point, index) =>
@@ -87,13 +93,49 @@ describe('weekly count recommendations', () => {
     ).toBe(true);
   });
 
+  it('raises a weekly target only when a rolling-average deadline needs catch-up days', () => {
+    const policy: Policy = {
+      ...rolling,
+      x: 2,
+      y: 3,
+      mode: 'average',
+      startDate: '2026-03-09',
+    };
+    const result = recommendWeeks({
+      policy,
+      today,
+      records: history([7, 0, 0], '2026-03-09'),
+    });
+    expect(result.state).toBe('ready');
+    expect(result.weeks[0]).toEqual({
+      weekStart: today,
+      officeDays: 6,
+      additionalDays: 6,
+      minimumDays: 6,
+    });
+  });
+
+  it('retains a seven-day target only when the rolling window truly needs all seven', () => {
+    const result = recommendWeeks({
+      policy: { ...rolling, x: 3, y: 3, mode: 'average', startDate: '2026-03-09' },
+      today,
+      records: history([7, 2, 0], '2026-03-09'),
+    });
+    expect(result.weeks[0]).toMatchObject({ officeDays: 7, minimumDays: 7 });
+  });
+
   it('does not count past plans as attendance, or treat future actuals as plans', () => {
     const result = recommendWeeks({
       policy: { ...weekly, startDate: today, n: 2 },
       today: addDays(today, 1),
       records: [entry(today, { status: 'planned' }), entry(addDays(today, 2))],
     });
-    expect(result.weeks[0]).toEqual({ weekStart: today, officeDays: 2, additionalDays: 2 });
+    expect(result.weeks[0]).toEqual({
+      weekStart: today,
+      officeDays: 2,
+      additionalDays: 2,
+      minimumDays: 2,
+    });
   });
 
   it('returns an explicit conflict, not zero days, for unmet requirements', () => {
@@ -139,7 +181,80 @@ describe('weekly count recommendations', () => {
   it('shows a genuine zero-day recommendation when rolling history covers the current week', () => {
     const policy = { ...rolling, x: 1, y: 2 };
     const result = recommendWeeks({ policy, today: '2026-01-12', records: history([3]) });
-    expect(result.weeks[0]).toEqual({ weekStart: '2026-01-12', officeDays: 0, additionalDays: 0 });
+    expect(result.weeks[0]).toEqual({
+      weekStart: '2026-01-12',
+      officeDays: 0,
+      additionalDays: 0,
+      minimumDays: 0,
+    });
+  });
+
+  it('spreads rolling qualifying guidance at the policy frequency and identifies flexible weeks', () => {
+    const policy = { ...rolling, startDate: today };
+    const snapshot = { policy, today, records: [] };
+    const result = recommendWeeks(snapshot);
+    expect(result.state).toBe('ready');
+    expect(result.weeks.every((week) => week.officeDays <= policy.n)).toBe(true);
+    expect(result.weeks.some((week) => week.minimumDays === 0)).toBe(true);
+    expect(result.weeks.some((week) => week.minimumDays === policy.n)).toBe(true);
+    expect(result.weeks.every((week) => week.minimumDays <= week.officeDays)).toBe(true);
+  });
+
+  it('counts saved plans without treating them as days required by policy', () => {
+    const policy = { ...rolling, x: 1, y: 2, startDate: today };
+    const result = recommendWeeks({
+      policy,
+      today,
+      records: simulatedEntries([addDays(today, 7), addDays(today, 8), addDays(today, 9)]),
+    });
+    expect(result.state).toBe('ready');
+    expect(result.weeks[1]).toMatchObject({
+      officeDays: 3,
+      additionalDays: 0,
+      minimumDays: 0,
+    });
+  });
+
+  it('marks a future week needed only when skipping it makes the rolling window fail', () => {
+    const result = recommendWeeks({
+      policy: { ...rolling, x: 1, y: 2, startDate: today },
+      today,
+      records: [
+        entry(today),
+        ...simulatedEntries([addDays(today, 1), addDays(today, 2)]),
+        ...dateRange(addDays(today, 7), addDays(today, 13)).map((date) =>
+          entry(date, { type: 'remote', status: 'planned' }),
+        ),
+      ],
+    });
+    expect(result.state).toBe('ready');
+    expect(result.weeks[1]).toMatchObject({ officeDays: 0, minimumDays: 0 });
+    expect(result.weeks[2]).toMatchObject({ officeDays: 3, minimumDays: 3 });
+  });
+
+  it('reports mandatory weekdays separately from extra planned office days', () => {
+    const result = recommendWeeks({
+      policy: {
+        kind: 'weekdays',
+        requiredDays: [2, 4],
+        windowWeeks: 4,
+        startDate: today,
+        weekStart: 1,
+        timeZone: 'UTC',
+      },
+      today,
+      records: [entry(today)],
+    });
+    expect(result.weeks[0]).toMatchObject({
+      officeDays: 3,
+      additionalDays: 2,
+      minimumDays: 2,
+    });
+    expect(result.weeks[1]).toMatchObject({
+      officeDays: 2,
+      additionalDays: 2,
+      minimumDays: 2,
+    });
   });
 });
 function history(counts: number[], first = start): Entry[] {

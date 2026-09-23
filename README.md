@@ -243,6 +243,11 @@ focus, 44px touch targets, and reduced-motion support.
   Browse previous or next weeks, or return with **This week**. Past weeks show
   logged attendance; future weeks show recommendations within the forecast window.
   Weeks beyond that window remain editable without a recommended target.
+  The next six weeks appear as **Needed** or **Flexible** cards with suggested
+  office-day counts; selecting a card opens that week. The full outlook shows
+  the minimum days needed in each week and marks guidance conditional while
+  future days are unplanned. The planner favors the policy's weekly frequency
+  and suggests extra days only when the forecast needs them.
   Past and present entries are logged; future entries are plans. Editing protected
   days requires confirmation. Completed-week results and a collapsed weekly outlook
   sit below the entry controls.
@@ -263,12 +268,13 @@ focus, 44px touch targets, and reduced-motion support.
 `src/domain/` contains pure, reference-date-driven civil-date, policy, projection,
 and planning modules. The typed `PolicyFormula` registry provides validation,
 evaluation, explanation, and recommendation metadata; it does not execute
-uploaded expressions. The planner starts from a proven feasible capacity
-schedule and removes later dates when all checkpoints remain satisfied. It
-preserves commitments, favors fewer additions and earlier dates, and is locally
-minimal, **not globally optimal**. The search runs automatically in a worker and
-returns weekly totals, not specific dates to attend. Totals include existing
-office entries; recommendations never write attendance or apply a schedule.
+uploaded expressions. Weekly guidance starts from a feasible cap near the policy frequency,
+increasing it only when necessary, then removes later unneeded dates while
+preserving every checkpoint. It preserves commitments, favors fewer additions
+and earlier dates, and is locally minimal, **not globally optimal**. The search
+runs automatically in a worker and returns weekly totals, not specific dates
+to attend. Totals include existing office entries; recommendations never write
+attendance or apply a schedule.
 Required-weekday policies still require their configured weekdays. Results refresh
 after edits and policy-local date changes; outdated worker results are discarded.
 If the search cannot satisfy the forecast, the UI asks for a plan review rather

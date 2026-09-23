@@ -106,6 +106,14 @@ export function Dashboard() {
   const response =
     planning?.source === snapshot && planning.today === today ? planning.response : null;
   const recommendation = response?.result?.weeks.find((week) => week.weekStart === displayedStart);
+  const upcoming = response?.result?.weeks
+    .filter((week) => week.weekStart > currentStart)
+    .slice(0, 6);
+  const outlookConditional =
+    projection.availableDates.length > 0 ||
+    snapshot.dataset.records.some(
+      (entry) => entry.date > today && entry.date <= projection.end && entry.status !== 'planned',
+    );
   const blocked = saving || !!pending || !!error;
   const eligible = displayedStart >= current.firstEligible;
   const conflict = response?.result?.state === 'conflict';
@@ -236,11 +244,20 @@ export function Dashboard() {
                   {recommendation.officeDays === 1 ? 'day' : 'days'}
                 </h2>
                 <p>
-                  {recommendation.additionalDays
-                    ? `${recommendation.additionalDays} more to plan`
-                    : recommendation.officeDays
-                      ? 'You have enough office days logged or planned.'
-                      : 'No office days needed this week.'}
+                  {!isCurrentWeek && (
+                    <span className="block">
+                      {recommendation.minimumDays
+                        ? `At least ${recommendation.minimumDays} needed`
+                        : 'Flexible: other weeks can cover the target'}
+                    </span>
+                  )}
+                  <span>
+                    {recommendation.additionalDays
+                      ? `${recommendation.additionalDays} more to plan`
+                      : recommendation.officeDays
+                        ? 'You have enough office days logged or planned.'
+                        : 'No office days needed this week.'}
+                  </span>
                 </p>
               </>
             ) : (
@@ -362,6 +379,57 @@ export function Dashboard() {
           <Link to="/calendar">Review past days</Link>
         </section>
       )}
+      {!error && upcoming && upcoming.length > 0 && (
+        <section className="card week-outlook" aria-label="Future weeks at a glance">
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">Plan ahead</p>
+              <h2>Next {upcoming.length} weeks</h2>
+            </div>
+            <span className="outlook-confidence">
+              {outlookConditional ? 'May change' : 'All days planned'}
+            </span>
+          </div>
+          <p className="outlook-explanation">
+            Needed weeks cannot be skipped with your current entries. Flexible weeks can be skipped
+            if other weeks cover the target.
+          </p>
+          <div className="outlook-grid">
+            {upcoming.map((week) => (
+              <button
+                key={week.weekStart}
+                className={`outlook-tile ${week.minimumDays ? 'needed' : 'flexible'}`}
+                aria-pressed={week.weekStart === displayedStart}
+                aria-label={`Week of ${formatDate(week.weekStart)}: ${week.minimumDays ? `at least ${week.minimumDays} office days needed` : 'flexible'}, ${week.officeDays} suggested, ${week.additionalDays} more to plan`}
+                onClick={() => {
+                  showWeek(week.weekStart);
+                  window.scrollTo(0, 0);
+                }}
+              >
+                <span className="outlook-date">
+                  {formatDate(week.weekStart)}
+                  <Icon name="arrow" size={14} />
+                </span>
+                <span className="outlook-tag">{week.minimumDays ? 'Needed' : 'Flexible'}</span>
+                <span className="outlook-count">
+                  <strong>{week.officeDays}</strong> office days suggested
+                </span>
+                <span className="outlook-minimum">
+                  {week.minimumDays
+                    ? `At least ${week.minimumDays} needed`
+                    : 'Could skip this week'}
+                </span>
+              </button>
+            ))}
+          </div>
+          <p className="outlook-caveat">
+            {outlookConditional
+              ? 'Conditional: earlier weeks and unplanned days can change these numbers.'
+              : 'Based on saved days through the forecast. Editing plans will change this outlook.'}
+          </p>
+        </section>
+      )}
+
       {!error && (
         <div className="week-secondary">
           <section className={`card insight-card status-${current.state}`}>
@@ -399,11 +467,11 @@ export function Dashboard() {
       {!error && (
         <details className="card outlook">
           <summary>
-            Upcoming weeks <span>Weekly targets</span>
+            Upcoming weeks <span>All weekly guidance</span>
           </summary>
           <p className="muted">
-            Recommended totals include logged and planned office days. Choose your own dates within
-            your policy.
+            Suggested totals include saved office days. A minimum assumes every other available day
+            could be used; flexible weeks may become needed if you choose different weeks.
           </p>
           {conflict ? (
             <p className="notice">
@@ -420,7 +488,9 @@ export function Dashboard() {
                 <thead>
                   <tr>
                     <th>Week of</th>
+                    <th>Guidance</th>
                     <th>Office days</th>
+                    <th>Minimum</th>
                     <th>More to plan</th>
                   </tr>
                 </thead>
@@ -433,7 +503,9 @@ export function Dashboard() {
                           <span className="small block">This week</span>
                         )}
                       </th>
+                      <td>{week.minimumDays ? 'Needed' : 'Flexible'}</td>
                       <td>{week.officeDays}</td>
+                      <td>{week.minimumDays}</td>
                       <td>{week.additionalDays}</td>
                     </tr>
                   ))}
