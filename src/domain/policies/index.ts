@@ -165,7 +165,7 @@ export function evaluateWeeks(policy: Policy, weeks: Week[], referenceDate: stri
       ...base,
       state: 'gathering',
       score: null,
-      explanation: 'Your first result appears after a full policy week.',
+      explanation: 'Your first result appears after a complete week.',
     };
   const score = formulas[policy.kind].evaluate(policy, weeks, eligibleCompleted);
   if (policy.kind === 'rolling' && eligibleCompleted < policy.y) {
@@ -181,8 +181,8 @@ export function evaluateWeeks(policy: Policy, weeks: Week[], referenceDate: stri
     score,
     state: score.met ? 'compliant' : 'shortfall',
     explanation: score.met
-      ? 'Your logged attendance meets the target.'
-      : 'Your logged attendance is below target. Future days cannot make up a past shortfall.',
+      ? 'Completed weeks meet the target.'
+      : 'Completed weeks are below target. Future days cannot change past results.',
   };
 }
 

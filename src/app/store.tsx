@@ -134,7 +134,7 @@ export function StoreProvider({
       },
       error: () =>
         setError(
-          'Unable to read browser storage. Close older tabs and retry. Check private-browsing or storage restrictions; no saved status can be confirmed.',
+          'Cannot read browser storage. Close older tabs, check browser storage settings, then retry. Saved status is unknown.',
         ),
     });
     const versionChange = () => {
@@ -238,7 +238,7 @@ export function StoreProvider({
     <Context.Provider
       value={{
         isAccount: !!account,
-        storageLabel: account ? 'to your account' : 'on this browser',
+        storageLabel: account ? 'to your account' : 'in this browser',
         snapshot,
         today,
         timeZone,

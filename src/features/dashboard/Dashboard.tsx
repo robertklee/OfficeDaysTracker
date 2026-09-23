@@ -194,7 +194,7 @@ export function Dashboard() {
                 <h2 className="recommendation-value">
                   <strong>{logged}</strong> office {logged === 1 ? 'day' : 'days'}
                 </h2>
-                <p>Logged attendance. Tap a day to make a correction.</p>
+                <p>Select a day to correct it.</p>
               </>
             ) : !eligible ? (
               <>
@@ -225,7 +225,8 @@ export function Dashboard() {
               <>
                 <h2>Review your plan</h2>
                 <p>
-                  Your history or saved plans leave a gap. <Link to="/calendar">Review days</Link>
+                  Past attendance or saved plans leave a shortfall.{' '}
+                  <Link to="/calendar">Review days</Link>
                 </p>
               </>
             ) : recommendation ? (
@@ -238,14 +239,14 @@ export function Dashboard() {
                   {recommendation.additionalDays
                     ? `${recommendation.additionalDays} more to plan`
                     : recommendation.officeDays
-                      ? 'Your logged and planned days cover this target.'
+                      ? 'You have enough office days logged or planned.'
                       : 'No office days needed this week.'}
                 </p>
               </>
             ) : (
               <>
                 <h2>Calculating target...</h2>
-                <p>You can log days while we work.</p>
+                <p>You can log days now.</p>
               </>
             )}
           </div>
@@ -281,7 +282,7 @@ export function Dashboard() {
           <div>
             <h2>Log your days</h2>
             <p className="muted" id="week-help">
-              Choose a type, then tap a day. Future days save as plans.
+              Choose a type, then select a day. Future days are plans.
             </p>
           </div>
           <button
@@ -328,7 +329,7 @@ export function Dashboard() {
                 <span className="week-day-number">{Number(date.slice(-2))}</span>
                 <span className="week-day-type">
                   <Icon name={entry?.type ?? 'plus'} />
-                  {entry ? dayLabels[entry.type] : 'Add day'}
+                  {entry ? dayLabels[entry.type] : 'Mark day'}
                 </span>
                 <span className="week-day-status">
                   {status}
@@ -406,8 +407,8 @@ export function Dashboard() {
           </p>
           {conflict ? (
             <p className="notice">
-              Your history or saved plans leave a gap. Check missing confirmations, time off, and
-              remote plans in Calendar. Future attendance cannot fix a past shortfall.
+              Check past plans awaiting confirmation, time off, and remote days in Calendar. Future
+              days cannot fix a past shortfall.
             </p>
           ) : unavailable ? (
             <p role="alert">{unavailable}</p>
@@ -439,7 +440,7 @@ export function Dashboard() {
                 </tbody>
               </table>
               {!response.result?.weeks.length && (
-                <p>No full policy weeks before {formatDate(projection.end)}.</p>
+                <p>No complete policy weeks through {formatDate(projection.end)}.</p>
               )}
             </div>
           )}

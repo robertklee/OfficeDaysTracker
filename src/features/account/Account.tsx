@@ -63,9 +63,8 @@ export function Account() {
               </div>
               <h3 className="subtle">Import local days</h3>
               <p>
-                Replace your account planner with this browser&apos;s data. Your local copy stays.
-                Nothing is uploaded without your approval. You can also restore a backup in
-                Settings.
+                Replace your account planner with this browser&apos;s data. Your local copy stays
+                here. You&apos;ll review the import before anything is uploaded.
               </p>
               <button
                 disabled={blocked || !store.snapshot || !!store.error}
@@ -78,8 +77,8 @@ export function Account() {
             <>
               <h2>{mode === 'login' ? 'Sign in' : 'Create an account'}</h2>
               <p>
-                Accounts start with an empty planner. Your local days stay in this browser until you
-                choose to import them. Save edits before signing in.
+                New accounts start with an empty planner. Local days stay in this browser unless you
+                import them. Save edits before signing in.
               </p>
               <div className="button-row" role="group" aria-label="Account form">
                 <button

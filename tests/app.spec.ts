@@ -44,7 +44,7 @@ test('first run, paint, idempotence, hints, eraser, repeated undo, protected det
   await page.getByRole('button', { name: 'Change protected days' }).click();
   await page.getByRole('button', { name: 'Undo last change' }).click();
   await expect(day(page, '2026-03-24')).toHaveAttribute('aria-label', /, protected/);
-  await expect(page.locator('.saved-status')).toHaveText('Saved on this browser');
+  await expect(page.locator('.saved-status')).toHaveText('Saved in this browser');
   await day(page, '2026-03-24').focus();
   await page.keyboard.press('d');
   await expect(page.getByLabel('Notes', { exact: true })).toHaveValue('Keep this note');
@@ -146,7 +146,7 @@ test('JSON backups export, validate before replacement and preserve actuals when
   await page.getByLabel('Import JSON backup').setInputFiles(backupPath!);
   await expect(page.getByRole('dialog')).toContainText('1 day');
   await page.getByRole('button', { name: 'Confirm replacement', exact: true }).click();
-  await expect(page.getByText('Backup restored on this browser.')).toBeVisible();
+  await expect(page.getByText('Backup restored in this browser.')).toBeVisible();
 });
 
 test('same-origin tabs receive count-preserving edits and reject stale details', async ({
@@ -196,7 +196,7 @@ test('offline reload retains logging and exports without attendance requests', a
   await page.goto('/calendar');
   await day(page, '2026-03-24').click();
   await expect(day(page, '2026-03-24')).toHaveAttribute('aria-label', /Office, actual/);
-  await expect(page.locator('.saved-status')).toHaveText('Saved on this browser');
+  await expect(page.locator('.saved-status')).toHaveText('Saved in this browser');
   await page.reload();
   await expect(day(page, '2026-03-24')).toHaveAttribute('aria-label', /Office, actual/);
   await page.goto('/settings');
@@ -479,7 +479,7 @@ test('partial first weeks and required-weekday policies have clear targets', asy
   await page.getByLabel('Start date', { exact: true }).fill('2026-03-23');
   await page.getByRole('button', { name: 'Preview policy', exact: true }).click();
   await page.getByRole('button', { name: 'Apply policy changes' }).click();
-  await expect(page.getByText('Policy confirmed and saved on this browser.')).toBeVisible();
+  await expect(page.getByText('Policy saved in this browser.')).toBeVisible();
   await page.getByRole('link', { name: 'This week', exact: true }).click();
   await expect(page.getByRole('heading', { name: '3 office days' })).toBeVisible();
   await expect(
@@ -509,14 +509,14 @@ test('storage quota failures retain unsaved edits for export and retry without c
   });
   await day(page, '2026-03-24').click();
   await expect(page.getByRole('alert')).toContainText('Your edit is not saved');
-  await expect(page.locator('.saved-status')).toHaveText('Storage needs attention');
+  await expect(page.locator('.saved-status')).toHaveText('Storage error');
   await expect(day(page, '2026-03-24')).toHaveAttribute('aria-label', /unentered/);
   const exportEvent = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Export unsaved changes' }).click();
   expect((await exportEvent).suggestedFilename()).toBe('rto-unsaved-recovery.json');
   await page.getByRole('button', { name: 'Retry storage' }).click();
   await expect(day(page, '2026-03-24')).toHaveAttribute('aria-label', /Office, actual/);
-  await expect(page.locator('.saved-status')).toHaveText('Saved on this browser');
+  await expect(page.locator('.saved-status')).toHaveText('Saved in this browser');
 });
 
 test('pointer cancellation does not persist preview and reverse range supports all week starts', async ({
@@ -530,7 +530,7 @@ test('pointer cancellation does not persist preview and reverse range supports a
     await page.getByLabel('Week starts on').selectOption(weekStart);
     await page.getByRole('button', { name: 'Preview policy', exact: true }).click();
     await page.getByRole('button', { name: 'Apply policy changes' }).click();
-    await expect(page.getByText('Policy confirmed and saved on this browser.')).toBeVisible();
+    await expect(page.getByText('Policy saved in this browser.')).toBeVisible();
     await page.goto('/calendar');
     await day(page, '2026-03-27').evaluate((element) =>
       element.scrollIntoView({ block: 'center' }),
@@ -563,7 +563,7 @@ test('pointer cancellation does not persist preview and reverse range supports a
     await expect(day(page, '2026-03-28')).toHaveAttribute('aria-label', /unentered/);
     await page.getByRole('button', { name: 'Undo last change' }).click();
     await expect(day(page, '2026-03-27')).toHaveAttribute('aria-label', /unentered/);
-    await expect(page.locator('.saved-status')).toHaveText('Saved on this browser');
+    await expect(page.locator('.saved-status')).toHaveText('Saved in this browser');
   }
 });
 
@@ -575,7 +575,7 @@ test('saved civil dates and policy timezone survive device timezone changes', as
   await setup(page);
   await page.goto('/calendar');
   await day(page, '2026-03-24').click();
-  await expect(page.locator('.saved-status')).toHaveText('Saved on this browser');
+  await expect(page.locator('.saved-status')).toHaveText('Saved in this browser');
   await expect(day(page, '2026-03-24')).toHaveAttribute('aria-label', /Office, actual/);
   const saved = await context.storageState({ indexedDB: true });
   const travel = await browser.newContext({ storageState: saved, timezoneId: 'Asia/Tokyo' });

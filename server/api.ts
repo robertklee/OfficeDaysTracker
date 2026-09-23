@@ -348,7 +348,7 @@ export async function handleApiRequest(request: Request, env: Env): Promise<Resp
       )
         throw new HttpError(
           413,
-          'Account storage is limited to 1.5 MB including revision and undo metadata. Export a backup and reduce the dataset, or use the local planner.',
+          'Account planner is full (1.5 MB including undo history). Export a backup, then remove some days or use the local planner.',
         );
       // A compare-and-swap preserves the same per-date conflicts and atomic replacement as IndexedDB.
       const result = await db
@@ -392,8 +392,7 @@ export async function handleApiRequest(request: Request, env: Env): Promise<Resp
     });
     return json(
       {
-        error:
-          'Account service unavailable. Check the D1 binding and migrations, or try again later.',
+        error: 'Account service is unavailable. Try again later.',
       },
       503,
     );

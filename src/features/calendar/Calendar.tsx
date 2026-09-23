@@ -301,7 +301,7 @@ export function Calendar() {
           </div>
         </div>
         <p className="calendar-help" id="calendar-help">
-          Choose a type, then tap or drag across days.
+          Choose a type, then select or drag across days.
         </p>
         <div
           ref={grid}

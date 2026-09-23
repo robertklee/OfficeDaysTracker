@@ -73,7 +73,7 @@ export function PolicyForm({ setup = false }: { setup?: boolean }) {
           {isAccount
             ? 'Saved to your account. An internet connection is required.'
             : 'Saved in this browser. Keep a backup in case browser data is cleared.'}{' '}
-          Check the example policy below against your employer&apos;s rules.
+          Adjust this suggested policy to match your workplace rules.
         </div>
       )}
       <div className="form-grid">
@@ -105,7 +105,7 @@ export function PolicyForm({ setup = false }: { setup?: boolean }) {
               </select>
             </label>
             <label>
-              Best weeks
+              Best weeks counted
               <input
                 type="number"
                 min="1"
@@ -116,7 +116,7 @@ export function PolicyForm({ setup = false }: { setup?: boolean }) {
               />
             </label>
             <label>
-              Out of
+              Weeks in window
               <input
                 type="number"
                 min="1"
@@ -260,7 +260,7 @@ export function PolicyForm({ setup = false }: { setup?: boolean }) {
               ) {
                 setPreview(null);
                 setDirty(false);
-                setMessage(`Policy confirmed and saved ${storageLabel}.`);
+                setMessage(`Policy saved ${storageLabel}.`);
               }
             }}
           >

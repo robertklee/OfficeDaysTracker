@@ -51,8 +51,8 @@ export function BackupSettings() {
     <section className="card">
       <h2>Backups</h2>
       <p>
-        {isAccount ? 'Saved to your account.' : 'Saved in this browser.'} JSON backs up everything.
-        CSV exports attendance only.
+        {isAccount ? 'Saved to your account.' : 'Saved in this browser.'} JSON includes days and
+        settings. CSV includes attendance records only.
       </p>
       <div className="button-row">
         <button onClick={exportJSON}>Export JSON backup</button>
@@ -79,7 +79,7 @@ export function BackupSettings() {
         </label>
       </div>
       <p className="muted">
-        RTO Planner web backups only, up to 5 MB.
+        Import RTO Planner JSON backups up to 5 MB.
         {isAccount && ' Accounts have a 1.5 MB storage limit, including undo history.'}
       </p>
       {error && (

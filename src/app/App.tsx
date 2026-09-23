@@ -181,11 +181,11 @@ export function App() {
             {saving
               ? 'Saving...'
               : error
-                ? 'Storage needs attention'
+                ? 'Storage error'
                 : snapshot
                   ? isAccount
                     ? 'Saved to your account'
-                    : 'Saved on this browser'
+                    : 'Saved in this browser'
                   : isAccount
                     ? 'Loading account...'
                     : 'Loading...'}

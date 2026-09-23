@@ -314,7 +314,7 @@ test('lifecycle: an offline account save stays pending and exportable until an e
   await day(page, '2026-03-25').click();
   await expect(page.getByRole('heading', { name: 'Account save not confirmed' })).toBeVisible();
   await expect(page.getByRole('alert')).toContainText('internet connection is required');
-  await expect(page.locator('.saved-status')).toHaveText('Storage needs attention');
+  await expect(page.locator('.saved-status')).toHaveText('Storage error');
   await expect(day(page, '2026-03-25')).toHaveAttribute('aria-label', /unentered/);
   const downloadEvent = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Export unsaved changes', exact: true }).click();
@@ -336,7 +336,7 @@ test('lifecycle: an offline account save stays pending and exportable until an e
   await expect(
     page.getByRole('button', { name: 'Export unsaved changes', exact: true }),
   ).toBeVisible();
-  await expect(page.locator('.saved-status')).toHaveText('Storage needs attention');
+  await expect(page.locator('.saved-status')).toHaveText('Storage error');
   expect(await snapshot(observer, user)).toEqual(before);
   await page.getByRole('button', { name: 'Retry storage', exact: true }).click();
   await expect(page.locator('.saved-status')).toHaveText('Saved to your account');

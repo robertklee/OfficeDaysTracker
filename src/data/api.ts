@@ -29,16 +29,16 @@ export async function api<T>(
     });
   } catch {
     throw new ApiError(
-      'Cannot reach account storage. An internet connection is required.' +
+      'Cannot reach the account service.' +
         (path === '/planner' && options.body !== undefined
-          ? ' A submitted save may have reached the server; retry the same edit or export it before refreshing.'
-          : ' Check your account session or retry once connected.'),
+          ? ' The save may have reached the server. Retry the same edit or export it before leaving this page.'
+          : ' Check your connection and try again.'),
       0,
     );
   }
   if (!response.headers.get('content-type')?.includes('application/json'))
     throw new ApiError(
-      'The account API did not return JSON. Check the Pages Functions deployment.',
+      'The account service returned an unexpected response. Check that the account service is running.',
       response.status,
     );
   let result: unknown;

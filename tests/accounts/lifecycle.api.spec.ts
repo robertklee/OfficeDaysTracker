@@ -41,8 +41,7 @@ test('lifecycle: missing schema returns 503 and an expired server session is den
       ];
       for (const response of responses) {
         expect(await jsonResponse(response, 503)).toEqual({
-          error:
-            'Account service unavailable. Check the D1 binding and migrations, or try again later.',
+          error: 'Account service is unavailable. Try again later.',
         });
       }
     });

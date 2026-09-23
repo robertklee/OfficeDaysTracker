@@ -169,7 +169,7 @@ test('a real service-worker update prompts without reloading an open notes draft
     await page.getByRole('button', { name: 'Preview policy', exact: true }).click();
     await page.getByRole('button', { name: 'Confirm policy & start' }).click();
     await expect(page.getByRole('heading', { name: 'This week', exact: true })).toBeVisible();
-    await expect(page.locator('.saved-status')).toHaveText('Saved on this browser');
+    await expect(page.locator('.saved-status')).toHaveText('Saved in this browser');
     await page.evaluate(async () => {
       await navigator.serviceWorker.ready;
     });
@@ -180,7 +180,7 @@ test('a real service-worker update prompts without reloading an open notes draft
       'aria-label',
       /Office, actual/,
     );
-    await expect(page.locator('.saved-status')).toHaveText('Saved on this browser');
+    await expect(page.locator('.saved-status')).toHaveText('Saved in this browser');
     await page.locator('[data-date="2026-03-24"]').focus();
     await page.keyboard.press('d');
     await page.getByLabel('Notes', { exact: true }).fill('Unfinished synthetic draft');
