@@ -400,7 +400,7 @@ test('account storage counts UTF-8 snapshot and undo bytes and rejects oversized
     })),
   };
   const tooMuchUndo = await jsonResponse(await mutate(client, user, edit), 413);
-  expect(tooMuchUndo.error).toContain('including revision and undo metadata');
+  expect(tooMuchUndo.error).toContain('including undo history');
   expect(await snapshot(client, user)).toEqual(before);
   await jsonResponse(
     await mutate(client, user, {
