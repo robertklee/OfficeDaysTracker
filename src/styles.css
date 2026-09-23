@@ -1007,7 +1007,6 @@ legend {
 .calendar-grid {
   display: grid;
   gap: 5px;
-  touch-action: none;
   user-select: none;
   -webkit-user-select: none;
 }

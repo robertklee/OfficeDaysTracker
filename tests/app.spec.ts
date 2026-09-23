@@ -121,6 +121,70 @@ test('320px calendar reflows with 44px targets and touch-capable day entry', asy
   await expect(day(page, '2026-03-24')).toHaveAttribute('aria-label', /Office, actual/);
 });
 
+test('touch swipes scroll without painting and taps still edit one day', async ({
+  page,
+  context,
+  isMobile,
+}) => {
+  test.skip(!isMobile, 'Requires a touch-enabled browser.');
+  await page.setViewportSize({ width: 390, height: 740 });
+  await setup(page);
+  await page.goto('/calendar');
+  const session = await context.newCDPSession(page);
+  try {
+    await day(page, '2026-03-24').scrollIntoViewIfNeeded();
+    const box = (await day(page, '2026-03-24').boundingBox())!;
+    const x = box.x + box.width / 2;
+    const y = box.y + box.height / 2;
+    const before = await page.evaluate(() => scrollY);
+    expect(
+      await page.locator('.calendar-grid').evaluate((grid) => getComputedStyle(grid).touchAction),
+    ).toBe('auto');
+    await session.send('Input.dispatchTouchEvent', {
+      type: 'touchStart',
+      touchPoints: [{ x, y }],
+    });
+    await expect(day(page, '2026-03-24')).not.toHaveClass(/range-preview/);
+    for (let step = 1; step <= 5; step++)
+      await session.send('Input.dispatchTouchEvent', {
+        type: 'touchMove',
+        touchPoints: [{ x, y: y - step * 28 }],
+      });
+    await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(before + 20);
+    await expect(day(page, '2026-03-24')).toHaveAttribute('aria-label', /unentered/);
+    await expect(day(page, '2026-03-25')).toHaveAttribute('aria-label', /unentered/);
+    await expect(page.locator('.save-announcement')).toBeEmpty();
+
+    await day(page, '2026-03-25').evaluate((element) =>
+      element.scrollIntoView({ block: 'center' }),
+    );
+    const from = (await day(page, '2026-03-25').boundingBox())!;
+    const to = (await day(page, '2026-03-27').boundingBox())!;
+    const startX = from.x + from.width / 2;
+    const endX = to.x + to.width / 2;
+    const rowY = from.y + from.height / 2;
+    await session.send('Input.dispatchTouchEvent', {
+      type: 'touchStart',
+      touchPoints: [{ x: startX, y: rowY }],
+    });
+    for (let step = 1; step <= 4; step++)
+      await session.send('Input.dispatchTouchEvent', {
+        type: 'touchMove',
+        touchPoints: [{ x: startX + ((endX - startX) * step) / 4, y: rowY }],
+      });
+    await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    for (const date of ['2026-03-25', '2026-03-26', '2026-03-27'])
+      await expect(day(page, date)).toHaveAttribute('aria-label', /unentered/);
+
+    await day(page, '2026-03-24').tap();
+    await expect(day(page, '2026-03-24')).toHaveAttribute('aria-label', /Office, actual/);
+    await expect(day(page, '2026-03-25')).toHaveAttribute('aria-label', /unentered/);
+  } finally {
+    await session.detach();
+  }
+});
+
 test('JSON backups export, validate before replacement and preserve actuals when clearing plans', async ({
   page,
 }) => {
@@ -704,7 +768,7 @@ test('pointer cancellation does not persist preview and reverse range supports a
         type: 'touchStart',
         touchPoints: [{ x: box.x + 15, y: box.y + 15 }],
       });
-      await expect(day(page, '2026-03-27')).toHaveClass(/range-preview/);
+      await expect(day(page, '2026-03-27')).not.toHaveClass(/range-preview/);
       await session.send('Input.dispatchTouchEvent', { type: 'touchCancel', touchPoints: [] });
       await session.detach();
     } else {

@@ -61,6 +61,8 @@ export function Calendar() {
     end: string;
     x: number;
     y: number;
+    pointerId: number;
+    touch: boolean;
     moved: boolean;
     snapshot: StoredSnapshot;
   } | null>(null);
@@ -186,15 +188,19 @@ export function Calendar() {
       event.target instanceof Element ? event.target.closest<HTMLElement>('[data-date]') : null;
     const date = target?.dataset.date;
     if (!date) return;
-    event.preventDefault();
+    const touch = event.pointerType === 'touch';
     drag.current = {
       start: date,
       end: date,
       x: event.clientX,
       y: event.clientY,
+      pointerId: event.pointerId,
+      touch,
       moved: false,
       snapshot: snapshot!,
     };
+    if (touch) return;
+    event.preventDefault();
     event.currentTarget.setPointerCapture(event.pointerId);
     setFocusDate(date);
     target.focus();
@@ -202,21 +208,29 @@ export function Calendar() {
   }
   function pointerMove(event: PointerEvent<HTMLDivElement>) {
     const current = drag.current;
-    if (!current) return;
+    if (!current || current.pointerId !== event.pointerId) return;
+    current.moved ||= Math.hypot(event.clientX - current.x, event.clientY - current.y) > 6;
+    if (current.touch) return;
     const cell = document
       .elementFromPoint(event.clientX, event.clientY)
       ?.closest<HTMLElement>('[data-date]');
     if (!cell?.dataset.date || !grid.current?.contains(cell)) return;
-    current.moved ||= Math.hypot(event.clientX - current.x, event.clientY - current.y) > 6;
     current.end = cell.dataset.date;
     setSelection({ start: current.start, end: current.end });
   }
   function pointerUp(event: PointerEvent<HTMLDivElement>) {
     const current = drag.current;
+    if (!current || current.pointerId !== event.pointerId) return;
     drag.current = null;
     if (event.currentTarget.hasPointerCapture(event.pointerId))
       event.currentTarget.releasePointerCapture(event.pointerId);
-    if (current) paint(current.start, current.end, current.snapshot);
+    if (current.touch) {
+      const date = document
+        .elementFromPoint(event.clientX, event.clientY)
+        ?.closest<HTMLElement>('[data-date]')?.dataset.date;
+      if (!current.moved && date === current.start)
+        paint(current.start, current.start, current.snapshot);
+    } else paint(current.start, current.end, current.snapshot);
   }
   function keyDown(event: KeyboardEvent<HTMLButtonElement>, date: string) {
     const offsets: Record<string, number> = {
@@ -301,7 +315,7 @@ export function Calendar() {
           </div>
         </div>
         <p className="calendar-help" id="calendar-help">
-          Choose a type, then select or drag across days.
+          Choose a type, then select a day. Mouse drag paints ranges.
         </p>
         <div
           ref={grid}
@@ -313,14 +327,18 @@ export function Calendar() {
           onPointerMove={pointerMove}
           onPointerUp={pointerUp}
           onPointerCancel={() => {
+            const current = drag.current;
             drag.current = null;
-            setSelection(null);
-            setMessage('Selection cancelled.');
+            if (current && !current.touch) {
+              setSelection(null);
+              setMessage('Selection cancelled.');
+            }
           }}
           onLostPointerCapture={() => {
             if (drag.current) {
+              const touch = drag.current.touch;
               drag.current = null;
-              setSelection(null);
+              if (!touch) setSelection(null);
             }
           }}
         >
@@ -398,8 +416,8 @@ export function Calendar() {
         <details className="calendar-help">
           <summary>Keyboard shortcuts & colors</summary>
           <p>
-            Arrow keys move between days. Shift+arrows selects a range; Enter applies. Press D for
-            details or Escape to cancel.
+            On touchscreens, swipe to scroll and tap to mark one day. Arrow keys move between days;
+            Shift+arrows selects a range, Enter applies, D opens details, and Escape cancels.
           </p>
           <p>
             Light days without labels are unentered. Gray days are weekends. Past plans need
