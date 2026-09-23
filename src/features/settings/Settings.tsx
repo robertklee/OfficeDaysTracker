@@ -215,32 +215,38 @@ export function Settings() {
           <p className="muted">Your office policy and saved data.</p>
         </div>
       </div>
-      <section className="card">
-        <h2>Attendance policy</h2>
-        <p>Policy changes apply to past records too.</p>
-        <PolicyForm />
-      </section>
-      <BackupSettings />
-      <section className="card">
-        <h2>Storage & privacy</h2>
-        <p>
-          No analytics. Local data stays in your browser. Account data is stored in Cloudflare D1,
-          requires internet access, and is not end-to-end encrypted. Cloudflare receives hosting
-          request metadata.
-        </p>
-        <p>
-          Clearing browser data or using private browsing can lose local records. Different browsers
-          and site addresses have separate storage. Use a JSON backup to move your data.
-        </p>
-        {!isAccount && (
-          <button onClick={() => void requestPersistence()}>Protect browser storage</button>
-        )}
-        <p role="status">{storageMessage}</p>
-        <h3>Reminders</h3>
-        <p>
-          Past plans are flagged on This week. There are no notifications when the app is closed.
-        </p>
-      </section>
+      <div className="settings-layout">
+        <section className="card">
+          <h2>Attendance policy</h2>
+          <p>Policy changes apply to past records too.</p>
+          <PolicyForm />
+        </section>
+        <div>
+          <BackupSettings />
+          <section className="card">
+            <h2>Storage & privacy</h2>
+            <p>
+              No analytics. Local data stays in your browser. Account data is stored in Cloudflare
+              D1, requires internet access, and is not end-to-end encrypted. Cloudflare receives
+              hosting request metadata.
+            </p>
+            <p>
+              Clearing browser data or using private browsing can lose local records. Different
+              browsers and site addresses have separate storage. Use a JSON backup to move your
+              data.
+            </p>
+            {!isAccount && (
+              <button onClick={() => void requestPersistence()}>Protect browser storage</button>
+            )}
+            <p role="status">{storageMessage}</p>
+            <h3>Reminders</h3>
+            <p>
+              Past plans are flagged on This week. There are no notifications when the app is
+              closed.
+            </p>
+          </section>
+        </div>
+      </div>
     </>
   );
 }

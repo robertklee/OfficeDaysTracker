@@ -4,6 +4,7 @@ import { useStore } from '../../app/store';
 import { type PlanningResponse } from '../../app/planning.worker';
 import { AttendanceTools, dayLabels, type DayTool } from '../../components/AttendanceTools';
 import { Dialog } from '../../components/Dialog';
+import { Icon } from '../../components/Icon';
 import { editAction, type EditAction } from '../../data/repository';
 import {
   addDays,
@@ -157,17 +158,17 @@ export function Dashboard() {
               aria-label="Previous week"
               onClick={() => showWeek(addDays(displayedStart, -7))}
             >
-              <span aria-hidden="true">←</span>
+              <Icon name="left" />
             </button>
             <button disabled={isCurrentWeek} onClick={() => showWeek(null)}>
               This week
             </button>
             <button aria-label="Next week" onClick={() => showWeek(addDays(displayedStart, 7))}>
-              <span aria-hidden="true">→</span>
+              <Icon name="right" />
             </button>
           </div>
-          <Link className="button" to="/calendar">
-            View calendar <span aria-hidden="true">↗</span>
+          <Link className="button quiet" to="/calendar">
+            View calendar <Icon name="arrow" />
           </Link>
         </div>
       </div>
@@ -182,7 +183,7 @@ export function Dashboard() {
             aria-live="polite"
             aria-busy={eligible && withinForecast && !response && !error}
           >
-            <p className="eyebrow">{isPastWeek ? 'Week in review' : 'Recommended for this week'}</p>
+            <p className="eyebrow">{isPastWeek ? 'Week in review' : 'Weekly recommendation'}</p>
             {error ? (
               <>
                 <h2>Target unavailable</h2>
@@ -252,11 +253,11 @@ export function Dashboard() {
             className="week-totals"
             aria-label={`Office days for week of ${formatDate(displayedStart)}`}
           >
-            <div>
+            <div className="total-logged">
               <strong data-testid="office-logged">{logged}</strong>
               <span>Office logged</span>
             </div>
-            <div>
+            <div className="total-planned">
               <strong data-testid="office-planned">{planned}</strong>
               <span>Office planned</span>
             </div>
@@ -284,13 +285,14 @@ export function Dashboard() {
             </p>
           </div>
           <button
+            className="quiet"
             disabled={!store.undoAvailable || blocked}
             onClick={async () => {
               setMessage('');
               await store.undo();
             }}
           >
-            Undo
+            <Icon name="undo" /> Undo
           </button>
         </div>
         <AttendanceTools value={tool} onChange={setTool} />
@@ -325,7 +327,8 @@ export function Dashboard() {
                 </span>
                 <span className="week-day-number">{Number(date.slice(-2))}</span>
                 <span className="week-day-type">
-                  {entry ? dayLabels[entry.type] : <span aria-hidden="true">+</span>}
+                  <Icon name={entry?.type ?? 'plus'} />
+                  {entry ? dayLabels[entry.type] : 'Add day'}
                 </span>
                 <span className="week-day-status">
                   {status}
@@ -336,8 +339,13 @@ export function Dashboard() {
           })}
         </div>
         <div className="week-footnote">
-          <span role="status">{message || 'Changes save automatically.'}</span>
-          <Link to="/calendar">Notes & day details</Link>
+          <span role="status">
+            <Icon name="check" size={14} />
+            {message || 'Changes save automatically.'}
+          </span>
+          <Link to="/calendar">
+            Notes & day details <Icon name="arrow" size={14} />
+          </Link>
         </div>
       </section>
 
@@ -355,8 +363,11 @@ export function Dashboard() {
       )}
       {!error && (
         <div className="week-secondary">
-          <section className={`card status-${current.state}`}>
-            <p className="eyebrow">Completed weeks</p>
+          <section className={`card insight-card status-${current.state}`}>
+            <p className="eyebrow">
+              <Icon name="week" size={16} />
+              Completed weeks
+            </p>
             <h2>{stateLabel[current.state]}</h2>
             <p className="muted">{current.explanation}</p>
             {current.score && (
@@ -373,8 +384,11 @@ export function Dashboard() {
               </p>
             )}
           </section>
-          <section className="card policy-summary">
-            <p className="eyebrow">Your policy</p>
+          <section className="card insight-card policy-summary">
+            <p className="eyebrow">
+              <Icon name="settings" size={16} />
+              Your policy
+            </p>
             <h2>{formulas[policy.kind].label}</h2>
             <p>{formulas[policy.kind].explain(policy)}</p>
             <Link to="/settings">Edit policy</Link>

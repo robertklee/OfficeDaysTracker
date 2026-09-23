@@ -9,6 +9,7 @@ import { BackupSettings, Settings } from '../features/settings/Settings';
 import { Dialog } from '../components/Dialog';
 import { Account } from '../features/account/Account';
 import { useAccount } from './account';
+import { Icon } from '../components/Icon';
 
 interface InstallEvent extends Event {
   prompt(): Promise<void>;
@@ -143,39 +144,38 @@ export function App() {
       <a className="skip-link" href="#main">
         Skip to content
       </a>
-      <aside className="sidebar">
-        <a href="/dashboard" className="brand">
-          <img src="/icon.svg" alt="" width="36" height="36" />
-          <span>
-            RTO<span className="brand-light">planner</span>
-          </span>
-        </a>
-        <nav aria-label="Main navigation">
-          <NavLink to="/dashboard">
-            <span aria-hidden="true">▦</span>This week
+      <header className="app-header">
+        <div className="header-inner">
+          <NavLink to="/dashboard" className="brand" aria-label="RTO Planner home">
+            <span className="brand-mark">
+              <Icon name="week" size={22} />
+            </span>
+            <span>
+              RTO<span className="brand-light">planner</span>
+            </span>
           </NavLink>
-          <NavLink to="/calendar">
-            <span aria-hidden="true">▤</span>Calendar
-          </NavLink>
-          <NavLink to="/settings">
-            <span aria-hidden="true">⚙</span>Settings
-          </NavLink>
-          <NavLink to="/account">
-            <span aria-hidden="true">@</span>Account
-          </NavLink>
-        </nav>
-        <div className="sidebar-note">
-          <strong>{isAccount ? 'Account planner' : 'Local planner'}</strong>
-          <p>
-            {isAccount ? 'Saved across your devices.' : 'Saved in this browser. No account needed.'}
-          </p>
-          <NavLink to={isAccount ? '/account' : '/settings'}>
-            {isAccount ? 'Manage account' : 'Back up your data'}
-          </NavLink>
+          <nav className="main-navigation" aria-label="Main navigation">
+            <NavLink to="/dashboard">
+              <Icon name="week" />
+              This week
+            </NavLink>
+            <NavLink to="/calendar">
+              <Icon name="calendar" />
+              Calendar
+            </NavLink>
+            <NavLink to="/settings">
+              <Icon name="settings" />
+              Settings
+            </NavLink>
+            <NavLink to="/account">
+              <Icon name="account" />
+              Account
+            </NavLink>
+          </nav>
         </div>
-      </aside>
+      </header>
       <div className="workspace">
-        <header className="topbar">
+        <div className="topbar">
           <span>{account.user ? `${account.user.displayName}'s planner` : 'My planner'}</span>
           <div className={`saved-status ${error ? 'failed' : ''}`} role="status">
             {saving
@@ -190,7 +190,7 @@ export function App() {
                     ? 'Loading account...'
                     : 'Loading...'}
           </div>
-        </header>
+        </div>
         <main id="main">
           {account.error && !isAccount && route.pathname !== '/account' && (
             <section className="notice" role="status">

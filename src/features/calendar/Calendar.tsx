@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerE
 import { useStore } from '../../app/store';
 import { useDraftWarning } from '../../app/useDraftWarning';
 import { Dialog } from '../../components/Dialog';
+import { Icon } from '../../components/Icon';
 import {
   AttendanceTools,
   dayLabels as labels,
@@ -257,7 +258,7 @@ export function Calendar() {
           <p className="muted">Edit past days or plan ahead.</p>
         </div>
         <button disabled={!store.undoAvailable || blocked} onClick={() => void store.undo()}>
-          Undo last change
+          <Icon name="undo" /> Undo last change
         </button>
       </div>
       <section className="card calendar-card">
@@ -284,7 +285,7 @@ export function Calendar() {
           <h2 aria-live="polite">{monthLabel(month)}</h2>
           <div className="button-row">
             <button aria-label="Previous month" onClick={() => jump(shiftMonth(month, -1))}>
-              Previous
+              <Icon name="left" />
             </button>
             <button
               onClick={() => {
@@ -295,7 +296,7 @@ export function Calendar() {
               Today
             </button>
             <button aria-label="Next month" onClick={() => jump(shiftMonth(month, 1))}>
-              Next
+              <Icon name="right" />
             </button>
           </div>
         </div>
@@ -398,7 +399,7 @@ export function Calendar() {
             details or Escape to cancel.
           </p>
           <p>
-            Faint green days are unentered, not remote. Gray days are weekends. Past plans need
+            Faint blue days are unentered, not office. Gray days are weekends. Past plans need
             confirmation in day details.
           </p>
         </details>

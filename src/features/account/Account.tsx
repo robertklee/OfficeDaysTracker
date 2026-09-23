@@ -41,157 +41,166 @@ export function Account() {
           <p className="muted">Access your planner across devices.</p>
         </div>
       </div>
-      <section className="card">
-        {account.user ? (
-          <>
-            <h2>Signed in as {account.user.displayName}</h2>
-            <p>
-              Username: <strong>{account.user.username}</strong>
-            </p>
-            <p>
-              Your account planner needs an internet connection. Signing out returns you to your
-              separate local planner.
-            </p>
-            <div className="button-row">
-              <Link className="button primary" to="/dashboard">
-                Go to this week
-              </Link>
-              <button disabled={blocked} onClick={() => setSignout(true)}>
-                Sign out
-              </button>
-            </div>
-            <h3 className="subtle">Import local days</h3>
-            <p>
-              Replace your account planner with this browser&apos;s data. Your local copy stays.
-              Nothing is uploaded without your approval. You can also restore a backup in Settings.
-            </p>
-            <button
-              disabled={blocked || !store.snapshot || !!store.error}
-              onClick={() => void reviewLocal()}
-            >
-              Import local planner
-            </button>
-          </>
-        ) : (
-          <>
-            <h2>{mode === 'login' ? 'Sign in' : 'Create an account'}</h2>
-            <p>
-              Accounts start with an empty planner. Your local days stay in this browser until you
-              choose to import them. Save edits before signing in.
-            </p>
-            <div className="button-row" role="group" aria-label="Account form">
+      <div className="account-layout">
+        <section className="card">
+          {account.user ? (
+            <>
+              <h2>Signed in as {account.user.displayName}</h2>
+              <p>
+                Username: <strong>{account.user.username}</strong>
+              </p>
+              <p>
+                Your account planner needs an internet connection. Signing out returns you to your
+                separate local planner.
+              </p>
+              <div className="button-row">
+                <Link className="button primary" to="/dashboard">
+                  Go to this week
+                </Link>
+                <button disabled={blocked} onClick={() => setSignout(true)}>
+                  Sign out
+                </button>
+              </div>
+              <h3 className="subtle">Import local days</h3>
+              <p>
+                Replace your account planner with this browser&apos;s data. Your local copy stays.
+                Nothing is uploaded without your approval. You can also restore a backup in
+                Settings.
+              </p>
               <button
-                aria-pressed={mode === 'login'}
-                disabled={blocked}
-                onClick={() => {
-                  setMode('login');
-                  setPassword('');
+                disabled={blocked || !store.snapshot || !!store.error}
+                onClick={() => void reviewLocal()}
+              >
+                Import local planner
+              </button>
+            </>
+          ) : (
+            <>
+              <h2>{mode === 'login' ? 'Sign in' : 'Create an account'}</h2>
+              <p>
+                Accounts start with an empty planner. Your local days stay in this browser until you
+                choose to import them. Save edits before signing in.
+              </p>
+              <div className="button-row" role="group" aria-label="Account form">
+                <button
+                  aria-pressed={mode === 'login'}
+                  disabled={blocked}
+                  onClick={() => {
+                    setMode('login');
+                    setPassword('');
+                    setError('');
+                  }}
+                >
+                  Sign in
+                </button>
+                <button
+                  aria-pressed={mode === 'signup'}
+                  disabled={blocked}
+                  onClick={() => {
+                    setMode('signup');
+                    setPassword('');
+                    setError('');
+                  }}
+                >
+                  Create account
+                </button>
+              </div>
+              <form
+                className="account-form"
+                aria-label="Account credentials"
+                onSubmit={async (event) => {
+                  event.preventDefault();
+                  if (blocked) return;
                   setError('');
+                  const input =
+                    mode === 'signup'
+                      ? { username, password, displayName }
+                      : { username, password };
+                  const parsed = (mode === 'signup' ? signupSchema : loginSchema).safeParse(input);
+                  if (!parsed.success) {
+                    setError(parsed.error.issues.map((issue) => issue.message).join(' '));
+                    return;
+                  }
+                  if (await account.authenticate(mode, parsed.data)) setPassword('');
                 }}
               >
-                Sign in
-              </button>
-              <button
-                aria-pressed={mode === 'signup'}
-                disabled={blocked}
-                onClick={() => {
-                  setMode('signup');
-                  setPassword('');
-                  setError('');
-                }}
-              >
-                Create account
-              </button>
-            </div>
-            <form
-              className="account-form"
-              aria-label="Account credentials"
-              onSubmit={async (event) => {
-                event.preventDefault();
-                if (blocked) return;
-                setError('');
-                const input =
-                  mode === 'signup' ? { username, password, displayName } : { username, password };
-                const parsed = (mode === 'signup' ? signupSchema : loginSchema).safeParse(input);
-                if (!parsed.success) {
-                  setError(parsed.error.issues.map((issue) => issue.message).join(' '));
-                  return;
-                }
-                if (await account.authenticate(mode, parsed.data)) setPassword('');
-              }}
-            >
-              <label>
-                Username
-                <input
-                  name="username"
-                  value={username}
-                  autoComplete="username"
-                  minLength={3}
-                  maxLength={30}
-                  required
-                  pattern="[A-Za-z0-9_]{3,30}"
-                  autoCapitalize="none"
-                  spellCheck={false}
-                  onChange={(event) => setUsername(event.target.value)}
-                />
-              </label>
-              {mode === 'signup' && (
                 <label>
-                  Display name
+                  Username
                   <input
-                    name="displayName"
-                    value={displayName}
-                    autoComplete="nickname"
-                    maxLength={60}
+                    name="username"
+                    value={username}
+                    autoComplete="username"
+                    minLength={3}
+                    maxLength={30}
                     required
-                    onChange={(event) => setDisplayName(event.target.value)}
+                    pattern="[A-Za-z0-9_]{3,30}"
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    onChange={(event) => setUsername(event.target.value)}
                   />
                 </label>
-              )}
-              <label>
-                Password
-                <input
-                  name="password"
-                  type="password"
-                  value={password}
-                  autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
-                  minLength={12}
-                  maxLength={200}
-                  required
-                  onChange={(event) => setPassword(event.target.value)}
-                />
-              </label>
-              <p className="muted">
-                12-200 characters. Keep it somewhere safe; there is no password recovery.
-              </p>
-              <button className="primary" disabled={blocked} type="submit">
-                {account.busy ? 'Please wait...' : mode === 'signup' ? 'Create account' : 'Sign in'}
+                {mode === 'signup' && (
+                  <label>
+                    Display name
+                    <input
+                      name="displayName"
+                      value={displayName}
+                      autoComplete="nickname"
+                      maxLength={60}
+                      required
+                      onChange={(event) => setDisplayName(event.target.value)}
+                    />
+                  </label>
+                )}
+                <label>
+                  Password
+                  <input
+                    name="password"
+                    type="password"
+                    value={password}
+                    autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+                    minLength={12}
+                    maxLength={200}
+                    required
+                    onChange={(event) => setPassword(event.target.value)}
+                  />
+                </label>
+                <p className="muted">
+                  12-200 characters. Keep it somewhere safe; there is no password recovery.
+                </p>
+                <button className="primary" disabled={blocked} type="submit">
+                  {account.busy
+                    ? 'Please wait...'
+                    : mode === 'signup'
+                      ? 'Create account'
+                      : 'Sign in'}
+                </button>
+              </form>
+              <button className="subtle" disabled={blocked} onClick={() => void account.refresh()}>
+                Retry connection
               </button>
-            </form>
-            <button className="subtle" disabled={blocked} onClick={() => void account.refresh()}>
-              Retry connection
-            </button>
-          </>
-        )}
-        {(error || account.error) && (
-          <p role="alert" className="error subtle">
-            {error || account.error}
+            </>
+          )}
+          {(error || account.error) && (
+            <p role="alert" className="error subtle">
+              {error || account.error}
+            </p>
+          )}
+          {message && <p role="status">{message}</p>}
+        </section>
+        <section className="card">
+          <h2>Before you use an account</h2>
+          <p>
+            No email is collected. Password recovery, password changes, MFA, and account deletion
+            are not available. Keep backups and avoid storing sensitive information.
           </p>
-        )}
-        {message && <p role="status">{message}</p>}
-      </section>
-      <section className="card">
-        <h2>Before you use an account</h2>
-        <p>
-          No email is collected. Password recovery, password changes, MFA, and account deletion are
-          not available. Keep backups and avoid storing sensitive information.
-        </p>
-        <p>
-          Account data is stored in Cloudflare D1, not cached offline or end-to-end encrypted.
-          Storage is limited to 1.5 MB, including undo history. Sessions last 30 days. You can
-          delete planner data in Settings without deleting the account.
-        </p>
-      </section>
+          <p>
+            Account data is stored in Cloudflare D1, not cached offline or end-to-end encrypted.
+            Storage is limited to 1.5 MB, including undo history. Sessions last 30 days. You can
+            delete planner data in Settings without deleting the account.
+          </p>
+        </section>
+      </div>
       {signout && (
         <Dialog title="Sign out?" onClose={() => !account.busy && setSignout(false)}>
           <p>

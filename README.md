@@ -233,6 +233,11 @@ credentials, cookies, tokens, request bodies and attendance.
 
 ## Behavior and architecture
 
+The interface uses a shared neutral-and-blue color system in `src/styles.css`,
+local SVG icons, and system fonts. Desktop navigation sits in the header; mobile
+navigation stays within thumb reach at the bottom. Controls retain visible keyboard
+focus, 44px touch targets, and reduced-motion support.
+
 - **This week** (`/dashboard`): quick entry for all seven days, office/remote/time-off
   tools, clear and undo, logged/planned totals, and a recommended office-day count.
   Browse previous or next weeks, or return with **This week**. Past weeks show

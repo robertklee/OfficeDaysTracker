@@ -1,4 +1,5 @@
 import { useEffect, useRef, type ReactNode } from 'react';
+import { Icon } from './Icon';
 
 export function Dialog({
   title,
@@ -32,8 +33,8 @@ export function Dialog({
     >
       <div className="dialog-heading">
         <h2 id="dialog-title">{title}</h2>
-        <button aria-label="Close dialog" onClick={onClose}>
-          Close
+        <button className="icon-button quiet" aria-label="Close dialog" onClick={onClose}>
+          <Icon name="close" />
         </button>
       </div>
       {children}
