@@ -256,6 +256,7 @@ focus, 44px touch targets, and reduced-motion support.
   actual/planned status; protected commitments; and transactional undo. Each day
   type has a distinct color and label; planned days have dashed borders and badges.
   Touch swipes scroll without painting; taps edit one day, and mouse drags paint ranges.
+  Unentered weekdays in a week with saved days get a faint remote tint, not a saved entry.
 - **Settings:** typed policy validation and recalculation preview; fixed IANA
   timezone; complete JSON backups; attendance-only CSV; reviewed atomic import;
   explicit local/account-planner deletion; and local persistent-storage requests.

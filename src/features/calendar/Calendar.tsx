@@ -355,7 +355,7 @@ export function Calendar() {
                 const entry = records.get(date);
                 const hint =
                   !entry && !isWeekend(date) && touchedWeeks.has(startOfWeek(date, weekStart));
-                const accessible = `${formatDate(date, true)}, ${entry ? `${labels[entry.type]}, ${entry.status}, ${entry.priority === 'must' ? 'protected' : 'unprotected'}` : 'unentered'}${isWeekend(date) ? ', weekend' : ''}${date === today ? ', today' : ''}`;
+                const accessible = `${formatDate(date, true)}, ${entry ? `${labels[entry.type]}, ${entry.status}, ${entry.priority === 'must' ? 'protected' : 'unprotected'}` : hint ? 'unentered, assumed remote' : 'unentered'}${isWeekend(date) ? ', weekend' : ''}${date === today ? ', today' : ''}`;
                 return (
                   <div key={date} role="gridcell" aria-selected={selected.has(date)}>
                     <button
@@ -406,6 +406,7 @@ export function Calendar() {
                 {labels[type]}
               </span>
             ))}
+            <span className="hint-dot">Assumed remote (unentered)</span>
             <span>Dashed = planned</span>
             <span>! = protected</span>
           </div>
@@ -420,8 +421,8 @@ export function Calendar() {
             Shift+arrows selects a range, Enter applies, D opens details, and Escape cancels.
           </p>
           <p>
-            Light days without labels are unentered. Gray days are weekends. Past plans need
-            confirmation in day details.
+            Pale green weekdays are assumed remote, not saved. Gray days are weekends. Past plans
+            need confirmation in day details.
           </p>
         </details>
       </section>

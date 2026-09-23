@@ -24,6 +24,8 @@
   --remote: #006658;
   --remote-bg: #c4e9d7;
   --remote-border: #90d1bd;
+  --remote-hint-bg: #ddf2e5;
+  --remote-hint-border: #cfe7d8;
   --vacation: #92372d;
   --vacation-bg: #fac5b9;
   --vacation-border: #e4b4a5;
@@ -74,7 +76,7 @@ button,
     border-color 140ms,
     box-shadow 140ms;
 }
-button:hover:not(:disabled),
+button:hover:not(:disabled):not(:where(.day, .week-day)),
 .button:hover {
   background: #f8f9fc;
   border-color: var(--line-strong);
@@ -1089,7 +1091,8 @@ legend {
   height: 2px;
 }
 .day.hint {
-  background: #f8f9fb;
+  background: var(--remote-hint-bg);
+  border-color: var(--remote-hint-border);
 }
 .day.weekend {
   background: #edf0f4;
@@ -1154,7 +1157,7 @@ legend {
   color: var(--muted);
   font-size: 0.72rem;
 }
-.legend :is(.office-dot, .remote-dot, .vacation-dot, .sick-dot, .holiday-dot)::before {
+.legend :is(.office-dot, .remote-dot, .vacation-dot, .sick-dot, .holiday-dot, .hint-dot)::before {
   content: '';
   display: inline-block;
   width: 10px;
@@ -1177,6 +1180,12 @@ legend {
 }
 .remote-dot {
   --swatch: var(--remote);
+}
+.hint-dot {
+  --swatch: var(--remote-hint-bg);
+}
+.legend .hint-dot::before {
+  border: 1px solid var(--remote-border);
 }
 .range-controls {
   align-items: flex-end;

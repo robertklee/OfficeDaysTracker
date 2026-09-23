@@ -204,6 +204,56 @@ test('calendar types have distinct fills and markers with readable text at phone
   }
 });
 
+test('assumed weekdays show a faint remote hue without saving remote attendance', async ({
+  page,
+  isMobile,
+}) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await openPlanner(page);
+  await page.goto('/calendar');
+  const assumed = page.locator('[data-date="2026-03-25"]');
+  const untouched = page.locator('[data-date="2026-03-30"]');
+  const saved = page.locator('[data-date="2026-03-24"]');
+  await expect(assumed).not.toHaveClass(/hint/);
+  await saved.click();
+  await expect(saved).toHaveAttribute('aria-label', /Office, actual/);
+  await expect(assumed).toHaveClass(/hint/);
+  await expect(assumed).toHaveAttribute('aria-label', /unentered, assumed remote/);
+  await expect(untouched).not.toHaveClass(/hint/);
+  await page.getByRole('button', { name: 'Remote', exact: true }).click();
+  await saved.click();
+  await expect(saved).toHaveAttribute('aria-label', /Remote, actual/);
+  await expect(saved).not.toHaveClass(/range-preview/);
+  await expect(saved).toHaveCSS('background-color', 'rgb(196, 233, 215)');
+  if (!isMobile) {
+    await assumed.hover();
+    await expect(assumed).toHaveCSS('background-color', 'rgb(221, 242, 229)');
+    await saved.hover();
+    await expect(saved).toHaveCSS('background-color', 'rgb(196, 233, 215)');
+  }
+  const colors = await page.evaluate(() => {
+    const background = (date: string) =>
+      getComputedStyle(document.querySelector(`[data-date="${date}"]`)!).backgroundColor;
+    return {
+      assumed: background('2026-03-25'),
+      remote: background('2026-03-24'),
+      untouched: background('2026-03-30'),
+      weekend: background('2026-03-28'),
+    };
+  });
+  expect(colorDistance(colors.assumed, colors.untouched)).toBeGreaterThan(0.05);
+  expect(colorDistance(colors.assumed, colors.weekend)).toBeGreaterThan(0.025);
+  expect(colorDistance(colors.assumed, colors.remote)).toBeGreaterThan(0.025);
+  expect(colorDistance(colors.assumed, colors.remote)).toBeLessThan(
+    colorDistance(colors.untouched, colors.remote),
+  );
+  await expect(page.locator('.hint-dot')).toHaveText('Assumed remote (unentered)');
+  await page.getByRole('button', { name: 'Undo last change' }).click();
+  await page.getByRole('button', { name: 'Undo last change' }).click();
+  await expect(assumed).not.toHaveClass(/hint/);
+  await expect(saved).toHaveAttribute('aria-label', /unentered/);
+});
+
 test('keyboard focus remains visible and reduced motion is respected', async ({
   page,
   browserName,
