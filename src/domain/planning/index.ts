@@ -18,6 +18,7 @@ export type WeeklyRecommendation = {
   baselineDays: number;
   baselineAdditionalDays: number;
   flexibleMinimumDays: number;
+  withMoreThisWeek?: { minimumDays: number; currentWeekDays: number };
 };
 export type WeeklyRecommendations = {
   state: Suggestion['state'];
@@ -89,15 +90,44 @@ export function recommendWeeks(snapshot: Snapshot): WeeklyRecommendations {
       ),
     ]),
   );
+  const currentStart = startOfWeek(snapshot.today, policy.weekStart);
+  const currentWeek = weeks.find((week) => week.weekStart === currentStart);
+  const currentBaseline = baseline.get(currentStart);
+  const expected = new Map(baseline);
+  if (currentWeek) expected.set(currentStart, currentWeek.officeDays);
   return {
     state: alreadyCovered ? 'unnecessary' : 'ready',
     weeks: weeks.map((week) => {
       const baselineDays = baseline.get(week.weekStart)!;
+      const flexibleMinimumDays = minimumDaysForWeek(policy, initial, week.weekStart, expected);
+      let withMoreThisWeek: WeeklyRecommendation['withMoreThisWeek'];
+      if (
+        currentWeek &&
+        currentBaseline !== undefined &&
+        week.weekStart > currentStart &&
+        currentWeek.officeDays < currentBaseline
+      ) {
+        const minimumWithBaseline = minimumDaysForWeek(policy, initial, week.weekStart, baseline);
+        if (minimumWithBaseline < flexibleMinimumDays) {
+          for (let count = currentWeek.officeDays + 1; count <= currentBaseline; count++) {
+            const alternative = new Map(expected).set(currentStart, count);
+            if (
+              minimumDaysForWeek(policy, initial, week.weekStart, alternative) <=
+              minimumWithBaseline
+            ) {
+              withMoreThisWeek = { minimumDays: minimumWithBaseline, currentWeekDays: count };
+              break;
+            }
+          }
+          if (!withMoreThisWeek) throw new Error('Unable to determine the current-week trade-off.');
+        }
+      }
       return {
         ...week,
         baselineDays,
         baselineAdditionalDays: baselineDays - (week.officeDays - week.additionalDays),
-        flexibleMinimumDays: minimumDaysForWeek(policy, initial, week.weekStart, baseline),
+        flexibleMinimumDays,
+        ...(withMoreThisWeek && { withMoreThisWeek }),
       };
     }),
   };

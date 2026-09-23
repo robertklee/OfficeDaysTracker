@@ -729,30 +729,29 @@ main {
   color: var(--muted-strong);
   font-size: 0.7rem;
 }
-.outlook-reliability {
-  --confidence-fill: 100%;
+.outlook-tradeoff {
+  color: var(--office);
+  font-size: 0.7rem;
+}
+.outlook-planning-status {
   display: flex;
   align-items: center;
   gap: 6px;
   color: var(--muted-strong);
   font-size: 0.68rem;
 }
-.outlook-reliability::before {
+.outlook-planning-status::before {
   content: '';
-  flex: 0 0 28px;
-  height: 5px;
-  border-radius: 99px;
-  background: linear-gradient(
-    to right,
-    var(--office) var(--confidence-fill),
-    var(--line-strong) var(--confidence-fill)
-  );
+  flex: 0 0 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--office);
 }
-.outlook-reliability[data-confidence='conditional'] {
-  --confidence-fill: 66%;
+.outlook-planning-status[data-planning-status='conditional']::before {
+  background: var(--warning);
 }
-.outlook-reliability[data-confidence='tentative'] {
-  --confidence-fill: 33%;
+.outlook-planning-status[data-planning-status='tentative']::before {
+  background: var(--muted-strong);
 }
 .week-secondary {
   display: grid;

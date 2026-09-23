@@ -18,28 +18,40 @@ import { evaluate, formulas, weekdayName } from '../../domain/policies';
 import { type WeeklyRecommendation } from '../../domain/planning';
 import { forecast } from '../../domain/projection';
 
-function flexibilityLabel(week: WeeklyRecommendation): string {
-  const minimum = week.flexibleMinimumDays;
-  const savedDays = week.baselineDays - week.baselineAdditionalDays;
-  const changedPlans = savedDays > minimum ? ' with changed plans' : '';
+const savedOfficeDays = (week: WeeklyRecommendation) =>
+  week.baselineDays - week.baselineAdditionalDays;
+
+function flexibilityLabel(
+  week: WeeklyRecommendation,
+  minimum = week.flexibleMinimumDays,
+  mentionSavedDays = true,
+): string {
+  const changedPlans =
+    mentionSavedDays && savedOfficeDays(week) > minimum ? ' if you change saved days' : '';
   if (!minimum) return `Could skip${changedPlans}`;
   if (minimum < week.baselineDays)
-    return `Could do ${minimum} ${minimum === 1 ? 'day' : 'days'} (${week.baselineDays - minimum} fewer)${changedPlans}`;
-  return `At least ${minimum} needed`;
+    return `Could go in ${minimum} ${minimum === 1 ? 'day' : 'days'}${changedPlans}`;
+  return `Need ${minimum} ${minimum === 1 ? 'day' : 'days'}`;
 }
 
-function confidenceLevel(unsettledWeeks: ReadonlySet<string>, weekStart: string) {
-  if (!unsettledWeeks.size) return 'planned';
+function tradeoffLabel(week: WeeklyRecommendation): string | null {
+  const alternative = week.withMoreThisWeek;
+  if (!alternative) return null;
+  const changeSavedDays =
+    savedOfficeDays(week) > alternative.minimumDays ? ' and change saved days' : '';
+  return `${flexibilityLabel(week, alternative.minimumDays, false)} if you go in ${alternative.currentWeekDays} ${alternative.currentWeekDays === 1 ? 'day' : 'days'} this week${changeSavedDays}`;
+}
+
+function planningStatus(unsettledWeeks: ReadonlySet<string>, weekStart: string) {
+  if (!unsettledWeeks.size) return { level: 'planned', label: 'All days entered' };
   const open = [...unsettledWeeks].filter((start) => start <= weekStart).length;
-  return open <= 2 ? 'near' : open <= 4 ? 'conditional' : 'tentative';
+  return {
+    level: open <= 2 ? 'near' : open <= 4 ? 'conditional' : 'tentative',
+    label: open
+      ? `${open} ${open === 1 ? 'week has' : 'weeks have'} unplanned days`
+      : 'Later weeks have unplanned days',
+  };
 }
-
-const confidenceLabels = {
-  planned: 'Saved plans',
-  near: 'Near-term',
-  conditional: 'Conditional',
-  tentative: 'Tentative',
-};
 
 const stateLabel = {
   'not-started': 'Not started',
@@ -130,6 +142,9 @@ export function Dashboard() {
   const response =
     planning?.source === snapshot && planning.today === today ? planning.response : null;
   const recommendation = response?.result?.weeks.find((week) => week.weekStart === displayedStart);
+  const currentWeekGuidance = response?.result?.weeks.find(
+    (week) => week.weekStart === currentStart,
+  );
   const targetDays = recommendation
     ? isCurrentWeek
       ? recommendation.officeDays
@@ -235,7 +250,7 @@ export function Dashboard() {
             aria-live="polite"
             aria-busy={eligible && withinForecast && !response && !error}
           >
-            <p className="eyebrow">{isPastWeek ? 'Week in review' : 'Weekly recommendation'}</p>
+            <p className="eyebrow">{isPastWeek ? 'Week in review' : 'Suggested days'}</p>
             {error ? (
               <>
                 <h2>Target unavailable</h2>
@@ -288,7 +303,12 @@ export function Dashboard() {
                 </h2>
                 <p>
                   {!isCurrentWeek && (
-                    <span className="block">{flexibilityLabel(recommendation)}</span>
+                    <>
+                      <span className="block">{flexibilityLabel(recommendation)}</span>
+                      {tradeoffLabel(recommendation) && (
+                        <span className="block">{tradeoffLabel(recommendation)}</span>
+                      )}
+                    </>
                   )}
                   <span>
                     {daysToPlan
@@ -426,23 +446,24 @@ export function Dashboard() {
               <h2>Next {upcoming.length} weeks</h2>
             </div>
             <span className="outlook-confidence">
-              {outlookConditional ? 'May change' : 'All days planned'}
+              {outlookConditional ? 'May change' : 'All days entered'}
             </span>
           </div>
           <p className="outlook-explanation">
             {policy.kind === 'weekdays'
-              ? `Start with ${policy.requiredDays.length} required weekdays each week. Other days do not substitute.`
-              : `Start with ${policy.n} days a week. Saved plans may limit that; fewer days assume other weeks stay on plan.`}
+              ? 'Your required weekdays cannot be swapped for other days.'
+              : `Aim for ${policy.n} office days a week. ${currentWeekGuidance ? `These options assume ${currentWeekGuidance.officeDays} ${currentWeekGuidance.officeDays === 1 ? 'day' : 'days'} this week and the suggested days in other weeks.` : 'These options assume the suggested days in other weeks.'}`}
           </p>
           <div className="outlook-grid">
             {upcoming.map((week) => {
-              const confidence = confidenceLevel(unsettledWeeks, week.weekStart);
+              const status = planningStatus(unsettledWeeks, week.weekStart);
+              const tradeoff = tradeoffLabel(week);
               return (
                 <button
                   key={week.weekStart}
                   className={`outlook-tile ${week.flexibleMinimumDays ? 'needed' : 'flexible'}`}
                   aria-pressed={week.weekStart === displayedStart}
-                  aria-label={`Week of ${formatDate(week.weekStart)}: ${week.baselineDays} office days to aim for, ${flexibilityLabel(week)}, ${week.baselineAdditionalDays} more to plan. Confidence: ${confidenceLabels[confidence]}`}
+                  aria-label={`Week of ${formatDate(week.weekStart)}: aim for ${week.baselineDays} office days; ${flexibilityLabel(week)}${tradeoff ? `; ${tradeoff}` : ''}; ${week.baselineAdditionalDays} days left to plan; ${status.label}`}
                   onClick={() => {
                     showWeek(week.weekStart);
                     window.scrollTo(0, 0);
@@ -453,14 +474,17 @@ export function Dashboard() {
                     <Icon name="arrow" size={14} />
                   </span>
                   <span className="outlook-tag">
-                    {week.flexibleMinimumDays ? 'Needed' : 'Flexible'}
+                    {week.flexibleMinimumDays ? 'Need days' : 'Could skip'}
                   </span>
                   <span className="outlook-count">
-                    <strong>{week.baselineDays}</strong> office days to aim for
+                    <strong>{week.baselineDays}</strong> office days
                   </span>
-                  <span className="outlook-minimum">{flexibilityLabel(week)}</span>
-                  <span className="outlook-reliability" data-confidence={confidence}>
-                    Confidence: {confidenceLabels[confidence]}
+                  {(week.flexibleMinimumDays > 0 || savedOfficeDays(week) > 0) && (
+                    <span className="outlook-minimum">{flexibilityLabel(week)}</span>
+                  )}
+                  {tradeoff && <span className="outlook-tradeoff">{tradeoff}</span>}
+                  <span className="outlook-planning-status" data-planning-status={status.level}>
+                    {status.label}
                   </span>
                 </button>
               );
@@ -468,8 +492,8 @@ export function Dashboard() {
           </div>
           <p className="outlook-caveat">
             {outlookConditional
-              ? 'Later weeks are less certain until earlier days are planned.'
-              : 'Based on saved days through the forecast. Editing plans will change this outlook.'}
+              ? 'Unplanned days this week can change what you need later.'
+              : 'Changing saved days will update this plan.'}
           </p>
         </section>
       )}
@@ -511,11 +535,11 @@ export function Dashboard() {
       {!error && (
         <details className="card outlook">
           <summary>
-            Upcoming weeks <span>All weekly guidance</span>
+            Week by week <span>Full list</span>
           </summary>
           <p className="muted">
-            Totals include saved office days. Fewer days assume other weeks meet their targets;
-            changes can shift this outlook.
+            These numbers use this week's suggestion and the days shown for other weeks. Going in
+            fewer days one week can change another.
           </p>
           {conflict ? (
             <p className="notice">
@@ -531,11 +555,11 @@ export function Dashboard() {
               <table>
                 <thead>
                   <tr>
-                    <th>Week of</th>
-                    <th>Guidance</th>
-                    <th>Plan for</th>
-                    <th>Could do</th>
-                    <th>More to plan</th>
+                    <th>Week</th>
+                    <th>Outlook</th>
+                    <th>Aim for</th>
+                    <th>Fewest days</th>
+                    <th>Left to plan</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -547,9 +571,17 @@ export function Dashboard() {
                           <span className="small block">This week</span>
                         )}
                       </th>
-                      <td>{week.flexibleMinimumDays ? 'Needed' : 'Flexible'}</td>
+                      <td>{week.flexibleMinimumDays ? 'Need days' : 'Could skip'}</td>
                       <td>{week.baselineDays}</td>
-                      <td>{week.flexibleMinimumDays}</td>
+                      <td>
+                        {week.flexibleMinimumDays}
+                        {savedOfficeDays(week) > week.flexibleMinimumDays && (
+                          <span className="small block">If you change saved office days</span>
+                        )}
+                        {tradeoffLabel(week) && (
+                          <span className="small block">{tradeoffLabel(week)}</span>
+                        )}
+                      </td>
                       <td>{week.baselineAdditionalDays}</td>
                     </tr>
                   ))}
@@ -561,8 +593,8 @@ export function Dashboard() {
             </div>
           )}
           <p className="small muted">
-            Through {formatDate(projection.end)}. Targets may change as you log days. Weekends
-            count; leave does not lower your target.
+            Through {formatDate(projection.end)}. Office days on weekends count; time off does not
+            lower the goal.
           </p>
         </details>
       )}

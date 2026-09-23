@@ -300,9 +300,9 @@ test('weekly recommendations are counts only; quick entry saves actuals, plans a
   await expect(day(page, '2026-03-26')).toHaveAttribute('aria-label', /Unentered/);
   await page.getByRole('button', { name: 'Undo', exact: true }).click();
   await expect(day(page, '2026-03-26')).toHaveAttribute('aria-label', /Sick, Planned/);
-  await page.locator('summary').filter({ hasText: 'Upcoming weeks' }).click();
-  await expect(page.getByRole('columnheader', { name: 'Plan for', exact: true })).toBeVisible();
-  await expect(page.getByRole('columnheader', { name: 'More to plan' })).toBeVisible();
+  await page.locator('summary').filter({ hasText: 'Week by week' }).click();
+  await expect(page.getByRole('columnheader', { name: 'Aim for', exact: true })).toBeVisible();
+  await expect(page.getByRole('columnheader', { name: 'Left to plan' })).toBeVisible();
   await page.reload();
   await expect(day(page, '2026-03-23')).toHaveAttribute('aria-label', /Office, Logged/);
   await expect(day(page, '2026-03-25')).toHaveAttribute('aria-label', /Office, Planned/);
@@ -340,24 +340,23 @@ test('future-week cards distinguish a needed week from one that can be skipped',
   await page.goto('/dashboard');
   const cards = page.locator('.outlook-tile');
   await expect(cards).toHaveCount(6);
-  await expect(cards.first()).toContainText('Flexible');
   await expect(cards.first()).toContainText('Could skip');
-  await expect(cards.first()).toContainText('0 office days to aim for');
-  await expect(cards.nth(1)).toContainText('Needed');
-  await expect(cards.nth(1)).toContainText('3 office days to aim for');
+  await expect(cards.first()).toContainText('0 office days');
+  await expect(cards.nth(1)).toContainText('Need days');
+  await expect(cards.nth(1)).toContainText('3 office days');
   await expect(page.getByText('May change', { exact: true })).toBeVisible();
-  await expect(page.getByText(/Later weeks are less certain/)).toBeVisible();
+  await expect(page.getByText(/Unplanned days this week can change/)).toBeVisible();
   await cards.nth(1).click();
   await expect(page.getByText('Week of Apr 13, 2026', { exact: true })).toBeVisible();
   const recommendation = page.getByRole('region', { name: 'Attendance for week of Apr 13, 2026' });
-  await expect(recommendation.getByText('At least 3 needed', { exact: true })).toBeVisible();
+  await expect(recommendation.getByText('Need 3 days', { exact: true })).toBeVisible();
   await expect(recommendation.getByText('3 more to plan', { exact: true })).toBeVisible();
   await expect(cards.nth(1)).toHaveAttribute('aria-pressed', 'true');
-  await page.locator('summary').filter({ hasText: 'Upcoming weeks' }).click();
-  await expect(page.getByRole('row', { name: /Apr 13, 2026 Needed 3 3 3/ })).toBeVisible();
+  await page.locator('summary').filter({ hasText: 'Week by week' }).click();
+  await expect(page.getByRole('row', { name: /Apr 13, 2026 Need days 3 3 3/ })).toBeVisible();
 });
 
-test('the outlook starts at three days and shows skip or fewer-day options with declining confidence', async ({
+test('the outlook starts at three days and shows skip or fewer-day options with more open weeks', async ({
   page,
 }) => {
   await page.clock.install({ time: new Date('2026-03-30T19:00:00Z') });
@@ -374,19 +373,16 @@ test('the outlook starts at three days and shows skip or fewer-day options with 
   await expect(day(page, '2026-04-03')).toHaveAttribute('aria-label', /Office, Planned/);
   const cards = page.locator('.outlook-tile');
   await expect(cards).toHaveCount(6);
-  await expect(cards.first()).toContainText('3 office days to aim for');
-  await expect(cards.first()).toContainText('Could do 1 day (2 fewer)');
-  await expect(cards.first().locator('.outlook-reliability')).toHaveAttribute(
-    'data-confidence',
-    'near',
+  await expect(cards.first()).toContainText('3 office days');
+  await expect(cards.first()).toContainText('Could go in 1 day');
+  await expect(cards.first().locator('.outlook-planning-status')).toHaveText(
+    '2 weeks have unplanned days',
   );
-  await expect(cards.nth(2).locator('.outlook-reliability')).toHaveAttribute(
-    'data-confidence',
-    'conditional',
+  await expect(cards.nth(2).locator('.outlook-planning-status')).toHaveText(
+    '4 weeks have unplanned days',
   );
-  await expect(cards.nth(4).locator('.outlook-reliability')).toHaveAttribute(
-    'data-confidence',
-    'tentative',
+  await expect(cards.nth(4).locator('.outlook-planning-status')).toHaveText(
+    '6 weeks have unplanned days',
   );
   await page.setViewportSize({ width: 320, height: 740 });
   const layout = await page.evaluate(() => ({
@@ -398,7 +394,7 @@ test('the outlook starts at three days and shows skip or fewer-day options with 
   await cards.first().click();
   const recommendation = page.getByRole('region', { name: 'Attendance for week of Apr 6, 2026' });
   await expect(recommendation.getByRole('heading', { name: '3 office days' })).toBeVisible();
-  await expect(recommendation.getByText('Could do 1 day (2 fewer)')).toBeVisible();
+  await expect(recommendation.getByText('Could go in 1 day')).toBeVisible();
   await expect(recommendation.getByText('3 more to plan')).toBeVisible();
 });
 
@@ -413,9 +409,68 @@ test('a skippable week still starts from the three-day baseline', async ({ page 
   await page.getByRole('button', { name: 'Preview policy', exact: true }).click();
   await page.getByRole('button', { name: 'Confirm policy & start' }).click();
   const first = page.locator('.outlook-tile').first();
-  await expect(first).toContainText('3 office days to aim for');
-  await expect(first).toContainText('Flexible');
+  await expect(first).toContainText('3 office days');
   await expect(first).toContainText('Could skip');
+  await first.click();
+  for (const date of ['2026-04-06', '2026-04-07', '2026-04-08']) await day(page, date).click();
+  await expect(first.locator('.outlook-minimum')).toHaveText('Could skip if you change saved days');
+  await page.locator('summary').filter({ hasText: 'Week by week' }).click();
+  await expect(page.getByRole('row', { name: /Apr 6, 2026/ })).toContainText(
+    'If you change saved office days',
+  );
+});
+
+test('future weeks use the shown current-week plan and disclose ways to skip', async ({ page }) => {
+  await page.clock.install({ time: new Date('2026-03-30T19:00:00Z') });
+  await page.goto('/dashboard');
+  const dataset: Dataset = {
+    formatVersion: 1,
+    policy: {
+      kind: 'rolling',
+      mode: 'average',
+      x: 1,
+      y: 2,
+      n: 3,
+      startDate: '2026-03-23',
+      weekStart: 1,
+      timeZone: 'America/Los_Angeles',
+    },
+    preferences: { includeWeekends: false },
+    records: ['2026-03-23', '2026-03-24', '2026-03-25'].map((date) => ({
+      date,
+      type: 'office',
+      status: 'actual',
+      priority: 'normal',
+      notes: '',
+      revision: 1,
+      createdAt: '2026-03-23T00:00:00.000Z',
+      updatedAt: '2026-03-23T00:00:00.000Z',
+    })),
+  };
+  await page.getByLabel('Import JSON backup').setInputFiles({
+    name: 'previous-week.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(JSON.stringify(dataset)),
+  });
+  await page.getByRole('button', { name: 'Confirm replacement', exact: true }).click();
+  await expect(page.getByRole('heading', { name: '0 office days' })).toBeVisible();
+  const next = page.locator('.outlook-tile').first();
+  await expect(page.locator('.outlook-explanation')).toContainText(
+    'These options assume 0 days this week',
+  );
+  await expect(next).toContainText('Need days');
+  await expect(next).toContainText('Could skip if you go in 3 days this week');
+  await next.click();
+  await expect(
+    page.getByRole('region', { name: 'Attendance for week of Apr 6, 2026' }),
+  ).toContainText('Could skip if you go in 3 days this week');
+  await page.clock.setFixedTime(new Date('2026-04-04T19:00:00Z'));
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await expect(next).toContainText('Need days');
+  await expect(next).not.toContainText('Could skip');
+  await expect(page.locator('.outlook-explanation')).toContainText(
+    'These options assume 0 days this week',
+  );
 });
 
 test('the outlook is marked fully planned only when no forecast days remain open', async ({
@@ -453,22 +508,18 @@ test('the outlook is marked fully planned only when no forecast days remain open
   });
   await page.getByRole('button', { name: 'Confirm replacement', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'This week', exact: true })).toBeVisible();
-  await expect(page.getByText('All days planned', { exact: true })).toBeVisible();
+  await expect(page.getByText('All days entered', { exact: true }).first()).toBeVisible();
   const firstWeek = page.locator('.outlook-tile').first();
-  await expect(firstWeek).toContainText('Needed');
-  await expect(firstWeek).toContainText('2 office days to aim for');
-  await expect(firstWeek.locator('.outlook-reliability')).toHaveAttribute(
-    'data-confidence',
-    'planned',
-  );
+  await expect(firstWeek).toContainText('Need days');
+  await expect(firstWeek).toContainText('2 office days');
+  await expect(firstWeek.locator('.outlook-planning-status')).toHaveText('All days entered');
   await firstWeek.click();
   await page.getByRole('button', { name: 'Clear', exact: true }).click();
   await day(page, '2026-04-06').click();
   await expect(page.getByText('May change', { exact: true })).toBeVisible();
-  await expect(firstWeek).toContainText('2 office days to aim for');
-  await expect(firstWeek.locator('.outlook-reliability')).toHaveAttribute(
-    'data-confidence',
-    'near',
+  await expect(firstWeek).toContainText('2 office days');
+  await expect(firstWeek.locator('.outlook-planning-status')).toHaveText(
+    '1 week has unplanned days',
   );
 });
 

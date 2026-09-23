@@ -149,6 +149,10 @@ describe('future-week count guidance against independent policy arithmetic', () 
           expect(cap, label).toBeDefined();
           const suggested = new Map(result.weeks.map((week) => [week.weekStart, week.officeDays]));
           const baseline = new Map(result.weeks.map((week) => [week.weekStart, week.baselineDays]));
+          const currentStart = startOfWeek(snapshot.today, policy.weekStart);
+          const currentPlan = new Map(baseline);
+          if (suggested.has(currentStart))
+            currentPlan.set(currentStart, suggested.get(currentStart)!);
           expect(meetsPolicy(policy, outlook, suggested), label).toBe(true);
           expect(meetsPolicy(policy, outlook, baseline), label).toBe(true);
           const plannedDates = result.weeks.flatMap((week) => {
@@ -178,8 +182,39 @@ describe('future-week count guidance against independent policy arithmetic', () 
             expect(week.baselineAdditionalDays, label).toBe(week.baselineDays - saved);
             expect(week.flexibleMinimumDays, label).toBe(
               Array.from({ length: 8 }, (_, count) => count).find((count) =>
-                meetsPolicy(policy, outlook, new Map([...baseline, [week.weekStart, count]])),
+                meetsPolicy(policy, outlook, new Map([...currentPlan, [week.weekStart, count]])),
               ),
+            );
+            const currentBaseline = baseline.get(currentStart);
+            const currentSuggested = suggested.get(currentStart);
+            const baselineMinimum = Array.from({ length: 8 }, (_, count) => count).find((count) =>
+              meetsPolicy(policy, outlook, new Map([...baseline, [week.weekStart, count]])),
+            );
+            const alternative =
+              week.weekStart > currentStart &&
+              currentBaseline !== undefined &&
+              currentSuggested !== undefined &&
+              baselineMinimum !== undefined &&
+              baselineMinimum < week.flexibleMinimumDays
+                ? Array.from(
+                    { length: currentBaseline - currentSuggested },
+                    (_, index) => currentSuggested + index + 1,
+                  ).find((count) =>
+                    meetsPolicy(
+                      policy,
+                      outlook,
+                      new Map([
+                        ...currentPlan,
+                        [currentStart, count],
+                        [week.weekStart, baselineMinimum],
+                      ]),
+                    ),
+                  )
+                : undefined;
+            expect(week.withMoreThisWeek, label).toEqual(
+              alternative === undefined
+                ? undefined
+                : { minimumDays: baselineMinimum, currentWeekDays: alternative },
             );
             expect(week.flexibleMinimumDays, label).toBeLessThanOrEqual(week.baselineDays);
             expect(

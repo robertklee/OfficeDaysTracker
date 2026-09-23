@@ -245,11 +245,13 @@ focus, 44px touch targets, and reduced-motion support.
   Weeks beyond that window remain editable without a recommended target.
   The next six weeks start with the policy's weekly frequency (normally three
   office days), with a verified option to attend fewer days or skip a week when
-  other weeks follow their baseline. Saved commitments and necessary catch-up
-  can raise a week's count; blocked days can lower what is possible. Each card
-  shows relative confidence that becomes more tentative as unresolved weeks
-  accumulate, not a numeric probability. Selecting a card opens that week;
-  the full outlook shows the baseline and possible reductions.
+  this week's suggested plan and other weeks' targets allow it. Cards show
+  when adding office days this week would unlock further flexibility, rather
+  than silently assuming those days will be attended. Saved commitments and
+  necessary catch-up can raise a week's count; blocked days can lower what
+  is possible. Each card counts weeks with unplanned days to show how the
+  outlook becomes less certain farther ahead. Selecting a card opens that week;
+  the full outlook shows the suggested days and ways to go in less.
   Past and present entries are logged; future entries are plans. Editing protected
   days requires confirmation. Completed-week results and a collapsed weekly outlook
   sit below the entry controls.

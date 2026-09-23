@@ -216,6 +216,41 @@ describe('weekly count recommendations', () => {
     expect(result.weeks[1].officeDays).toBeLessThanOrEqual(3);
   });
 
+  it('anchors future flexibility to the displayed current-week plan as unplanned days expire', () => {
+    const policy: Policy = {
+      kind: 'rolling',
+      mode: 'average',
+      x: 1,
+      y: 2,
+      n: 3,
+      startDate: '2026-03-23',
+      weekStart: 1,
+      timeZone: 'UTC',
+    };
+    const records = ['2026-03-23', '2026-03-24', '2026-03-25'].map((date) => entry(date));
+    const monday = recommendWeeks({ policy, records, today: '2026-03-30' });
+    expect(monday.weeks[0]).toMatchObject({ officeDays: 0, baselineDays: 3 });
+    expect(monday.weeks[1]).toMatchObject({
+      baselineDays: 3,
+      flexibleMinimumDays: 3,
+      withMoreThisWeek: { minimumDays: 0, currentWeekDays: 3 },
+    });
+    const withCurrentPlans = recommendWeeks({
+      policy,
+      records: [...records, ...simulatedEntries(['2026-03-30', '2026-03-31', '2026-04-01'])],
+      today: '2026-03-30',
+    });
+    expect(withCurrentPlans.weeks[1].flexibleMinimumDays).toBe(0);
+    expect(withCurrentPlans.weeks[1].withMoreThisWeek).toBeUndefined();
+    const saturday = recommendWeeks({ policy, records, today: '2026-04-04' });
+    expect(saturday.weeks[0]).toMatchObject({ officeDays: 0, baselineDays: 2 });
+    expect(saturday.weeks[1]).toMatchObject({
+      baselineDays: 3,
+      flexibleMinimumDays: 3,
+    });
+    expect(saturday.weeks[1].withMoreThisWeek).toBeUndefined();
+  });
+
   it('shows a one-day alternative instead of only all-or-nothing flexibility', () => {
     const result = recommendWeeks({
       policy: { ...rolling, x: 2, y: 3, n: 3, mode: 'average', startDate: today },
