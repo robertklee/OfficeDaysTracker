@@ -15,6 +15,9 @@ export type WeeklyRecommendation = {
   officeDays: number;
   additionalDays: number;
   minimumDays: number;
+  baselineDays: number;
+  baselineAdditionalDays: number;
+  flexibleMinimumDays: number;
 };
 export type WeeklyRecommendations = {
   state: Suggestion['state'];
@@ -61,23 +64,51 @@ export function recommendWeeks(snapshot: Snapshot): WeeklyRecommendations {
     if (!feasible) return { state: 'limited', weeks: [] };
     additions = minimizeDates(snapshot, feasible);
   }
+  const weeks = initial.checkpoints.map((point) => {
+    const additionalDays = additions.filter(
+      (date) => date >= point.weekStart && date <= point.end,
+    ).length;
+    return {
+      weekStart: point.weekStart,
+      officeDays: point.committedDates.length + additionalDays,
+      additionalDays,
+      minimumDays: minimumDaysForWeek(policy, initial, point.weekStart),
+    };
+  });
+  const frequency = policy.kind === 'weekdays' ? policy.requiredDays.length : policy.n;
+  const baseline = new Map(
+    weeks.map((week, index) => [
+      week.weekStart,
+      Math.max(
+        week.officeDays,
+        Math.min(
+          frequency,
+          initial.checkpoints[index].committedDates.length +
+            initial.checkpoints[index].availableDates.length,
+        ),
+      ),
+    ]),
+  );
   return {
     state: alreadyCovered ? 'unnecessary' : 'ready',
-    weeks: initial.checkpoints.map((point) => {
-      const additionalDays = additions.filter(
-        (date) => date >= point.weekStart && date <= point.end,
-      ).length;
+    weeks: weeks.map((week) => {
+      const baselineDays = baseline.get(week.weekStart)!;
       return {
-        weekStart: point.weekStart,
-        officeDays: point.committedDates.length + additionalDays,
-        additionalDays,
-        minimumDays: minimumDaysForWeek(policy, initial, point.weekStart),
+        ...week,
+        baselineDays,
+        baselineAdditionalDays: baselineDays - (week.officeDays - week.additionalDays),
+        flexibleMinimumDays: minimumDaysForWeek(policy, initial, week.weekStart, baseline),
       };
     }),
   };
 }
 
-function minimumDaysForWeek(policy: Policy, outlook: Forecast, start: string): number {
+function minimumDaysForWeek(
+  policy: Policy,
+  outlook: Forecast,
+  start: string,
+  baseline?: ReadonlyMap<string, number>,
+): number {
   const affected = outlook.checkpoints.filter((point) =>
     point.capacity.weeks.some((week) => week.start === start),
   );
@@ -87,15 +118,16 @@ function minimumDaysForWeek(policy: Policy, outlook: Forecast, start: string): n
         (point) =>
           formulas[policy.kind].evaluate(
             policy,
-            point.capacity.weeks.map((week) =>
-              week.start === start
-                ? {
-                    ...week,
-                    count,
-                    missingDays: policy.kind === 'weekdays' ? policy.requiredDays.slice(count) : [],
-                  }
-                : week,
-            ),
+            point.capacity.weeks.map((week) => {
+              if (week.start === start)
+                return {
+                  ...week,
+                  count,
+                  missingDays: policy.kind === 'weekdays' ? policy.requiredDays.slice(count) : [],
+                };
+              const expected = policy.kind === 'weekdays' ? undefined : baseline?.get(week.start);
+              return expected === undefined ? week : { ...week, count: expected };
+            }),
             point.capacity.eligibleCompleted,
           ).met,
       )

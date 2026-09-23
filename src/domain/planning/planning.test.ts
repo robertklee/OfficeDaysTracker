@@ -148,7 +148,9 @@ describe('future-week count guidance against independent policy arithmetic', () 
               );
           expect(cap, label).toBeDefined();
           const suggested = new Map(result.weeks.map((week) => [week.weekStart, week.officeDays]));
+          const baseline = new Map(result.weeks.map((week) => [week.weekStart, week.baselineDays]));
           expect(meetsPolicy(policy, outlook, suggested), label).toBe(true);
+          expect(meetsPolicy(policy, outlook, baseline), label).toBe(true);
           const plannedDates = result.weeks.flatMap((week) => {
             const checkpoint = outlook.checkpoints.find(
               (point) => point.weekStart === week.weekStart,
@@ -170,6 +172,16 @@ describe('future-week count guidance against independent policy arithmetic', () 
             expect(week.officeDays, label).toBe(saved + week.additionalDays);
             expect(week.officeDays, label).toBeLessThanOrEqual(capacity.get(week.weekStart)!);
             expect(week.officeDays, label).toBeLessThanOrEqual(Math.max(saved, cap!));
+            expect(week.baselineDays, label).toBe(
+              Math.max(week.officeDays, Math.min(policy.n, capacity.get(week.weekStart)!)),
+            );
+            expect(week.baselineAdditionalDays, label).toBe(week.baselineDays - saved);
+            expect(week.flexibleMinimumDays, label).toBe(
+              Array.from({ length: 8 }, (_, count) => count).find((count) =>
+                meetsPolicy(policy, outlook, new Map([...baseline, [week.weekStart, count]])),
+              ),
+            );
+            expect(week.flexibleMinimumDays, label).toBeLessThanOrEqual(week.baselineDays);
             expect(
               verified.checkpoints.find((point) => point.weekStart === week.weekStart)
                 ?.committedDates.length,
@@ -231,11 +243,17 @@ describe('specific-weekday guidance', () => {
         officeDays: 3,
         additionalDays: 2,
         minimumDays: 2,
+        baselineDays: 3,
+        baselineAdditionalDays: 2,
+        flexibleMinimumDays: 2,
       });
       expect(result.weeks[1]).toMatchObject({
         officeDays: 3,
         additionalDays: 1,
         minimumDays: 2,
+        baselineDays: 3,
+        baselineAdditionalDays: 1,
+        flexibleMinimumDays: 2,
       });
       const added = result.weeks.flatMap((_, index) =>
         policy.requiredDays

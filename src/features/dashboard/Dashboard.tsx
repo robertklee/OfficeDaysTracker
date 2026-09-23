@@ -15,7 +15,31 @@ import {
   weekday,
 } from '../../domain/dates';
 import { evaluate, formulas, weekdayName } from '../../domain/policies';
+import { type WeeklyRecommendation } from '../../domain/planning';
 import { forecast } from '../../domain/projection';
+
+function flexibilityLabel(week: WeeklyRecommendation): string {
+  const minimum = week.flexibleMinimumDays;
+  const savedDays = week.baselineDays - week.baselineAdditionalDays;
+  const changedPlans = savedDays > minimum ? ' with changed plans' : '';
+  if (!minimum) return `Could skip${changedPlans}`;
+  if (minimum < week.baselineDays)
+    return `Could do ${minimum} ${minimum === 1 ? 'day' : 'days'} (${week.baselineDays - minimum} fewer)${changedPlans}`;
+  return `At least ${minimum} needed`;
+}
+
+function confidenceLevel(unsettledWeeks: ReadonlySet<string>, weekStart: string) {
+  if (!unsettledWeeks.size) return 'planned';
+  const open = [...unsettledWeeks].filter((start) => start <= weekStart).length;
+  return open <= 2 ? 'near' : open <= 4 ? 'conditional' : 'tentative';
+}
+
+const confidenceLabels = {
+  planned: 'Saved plans',
+  near: 'Near-term',
+  conditional: 'Conditional',
+  tentative: 'Tentative',
+};
 
 const stateLabel = {
   'not-started': 'Not started',
@@ -106,14 +130,34 @@ export function Dashboard() {
   const response =
     planning?.source === snapshot && planning.today === today ? planning.response : null;
   const recommendation = response?.result?.weeks.find((week) => week.weekStart === displayedStart);
+  const targetDays = recommendation
+    ? isCurrentWeek
+      ? recommendation.officeDays
+      : recommendation.baselineDays
+    : null;
+  const daysToPlan = recommendation
+    ? isCurrentWeek
+      ? recommendation.additionalDays
+      : recommendation.baselineAdditionalDays
+    : null;
   const upcoming = response?.result?.weeks
     .filter((week) => week.weekStart > currentStart)
     .slice(0, 6);
-  const outlookConditional =
-    projection.availableDates.length > 0 ||
-    snapshot.dataset.records.some(
-      (entry) => entry.date > today && entry.date <= projection.end && entry.status !== 'planned',
-    );
+  const unsettledWeeks = new Set(
+    [
+      ...projection.availableDates,
+      ...snapshot.dataset.records
+        .filter(
+          (entry) =>
+            entry.date > today &&
+            entry.date >= current.firstEligible &&
+            entry.date <= projection.end &&
+            entry.status !== 'planned',
+        )
+        .map((entry) => entry.date),
+    ].map((date) => startOfWeek(date, policy.weekStart)),
+  );
+  const outlookConditional = unsettledWeeks.size > 0;
   const blocked = saving || !!pending || !!error;
   const eligible = displayedStart >= current.firstEligible;
   const conflict = response?.result?.state === 'conflict';
@@ -240,21 +284,16 @@ export function Dashboard() {
             ) : recommendation ? (
               <>
                 <h2 className="recommendation-value">
-                  <strong>{recommendation.officeDays}</strong> office{' '}
-                  {recommendation.officeDays === 1 ? 'day' : 'days'}
+                  <strong>{targetDays}</strong> office {targetDays === 1 ? 'day' : 'days'}
                 </h2>
                 <p>
                   {!isCurrentWeek && (
-                    <span className="block">
-                      {recommendation.minimumDays
-                        ? `At least ${recommendation.minimumDays} needed`
-                        : 'Flexible: other weeks can cover the target'}
-                    </span>
+                    <span className="block">{flexibilityLabel(recommendation)}</span>
                   )}
                   <span>
-                    {recommendation.additionalDays
-                      ? `${recommendation.additionalDays} more to plan`
-                      : recommendation.officeDays
+                    {daysToPlan
+                      ? `${daysToPlan} more to plan`
+                      : targetDays
                         ? 'You have enough office days logged or planned.'
                         : 'No office days needed this week.'}
                   </span>
@@ -391,40 +430,45 @@ export function Dashboard() {
             </span>
           </div>
           <p className="outlook-explanation">
-            Needed weeks cannot be skipped with your current entries. Flexible weeks can be skipped
-            if other weeks cover the target.
+            {policy.kind === 'weekdays'
+              ? `Start with ${policy.requiredDays.length} required weekdays each week. Other days do not substitute.`
+              : `Start with ${policy.n} days a week. Saved plans may limit that; fewer days assume other weeks stay on plan.`}
           </p>
           <div className="outlook-grid">
-            {upcoming.map((week) => (
-              <button
-                key={week.weekStart}
-                className={`outlook-tile ${week.minimumDays ? 'needed' : 'flexible'}`}
-                aria-pressed={week.weekStart === displayedStart}
-                aria-label={`Week of ${formatDate(week.weekStart)}: ${week.minimumDays ? `at least ${week.minimumDays} office days needed` : 'flexible'}, ${week.officeDays} suggested, ${week.additionalDays} more to plan`}
-                onClick={() => {
-                  showWeek(week.weekStart);
-                  window.scrollTo(0, 0);
-                }}
-              >
-                <span className="outlook-date">
-                  {formatDate(week.weekStart)}
-                  <Icon name="arrow" size={14} />
-                </span>
-                <span className="outlook-tag">{week.minimumDays ? 'Needed' : 'Flexible'}</span>
-                <span className="outlook-count">
-                  <strong>{week.officeDays}</strong> office days suggested
-                </span>
-                <span className="outlook-minimum">
-                  {week.minimumDays
-                    ? `At least ${week.minimumDays} needed`
-                    : 'Could skip this week'}
-                </span>
-              </button>
-            ))}
+            {upcoming.map((week) => {
+              const confidence = confidenceLevel(unsettledWeeks, week.weekStart);
+              return (
+                <button
+                  key={week.weekStart}
+                  className={`outlook-tile ${week.flexibleMinimumDays ? 'needed' : 'flexible'}`}
+                  aria-pressed={week.weekStart === displayedStart}
+                  aria-label={`Week of ${formatDate(week.weekStart)}: ${week.baselineDays} office days to aim for, ${flexibilityLabel(week)}, ${week.baselineAdditionalDays} more to plan. Confidence: ${confidenceLabels[confidence]}`}
+                  onClick={() => {
+                    showWeek(week.weekStart);
+                    window.scrollTo(0, 0);
+                  }}
+                >
+                  <span className="outlook-date">
+                    {formatDate(week.weekStart)}
+                    <Icon name="arrow" size={14} />
+                  </span>
+                  <span className="outlook-tag">
+                    {week.flexibleMinimumDays ? 'Needed' : 'Flexible'}
+                  </span>
+                  <span className="outlook-count">
+                    <strong>{week.baselineDays}</strong> office days to aim for
+                  </span>
+                  <span className="outlook-minimum">{flexibilityLabel(week)}</span>
+                  <span className="outlook-reliability" data-confidence={confidence}>
+                    Confidence: {confidenceLabels[confidence]}
+                  </span>
+                </button>
+              );
+            })}
           </div>
           <p className="outlook-caveat">
             {outlookConditional
-              ? 'Conditional: earlier weeks and unplanned days can change these numbers.'
+              ? 'Later weeks are less certain until earlier days are planned.'
               : 'Based on saved days through the forecast. Editing plans will change this outlook.'}
           </p>
         </section>
@@ -470,8 +514,8 @@ export function Dashboard() {
             Upcoming weeks <span>All weekly guidance</span>
           </summary>
           <p className="muted">
-            Suggested totals include saved office days. A minimum assumes every other available day
-            could be used; flexible weeks may become needed if you choose different weeks.
+            Totals include saved office days. Fewer days assume other weeks meet their targets;
+            changes can shift this outlook.
           </p>
           {conflict ? (
             <p className="notice">
@@ -489,8 +533,8 @@ export function Dashboard() {
                   <tr>
                     <th>Week of</th>
                     <th>Guidance</th>
-                    <th>Office days</th>
-                    <th>Minimum</th>
+                    <th>Plan for</th>
+                    <th>Could do</th>
                     <th>More to plan</th>
                   </tr>
                 </thead>
@@ -503,10 +547,10 @@ export function Dashboard() {
                           <span className="small block">This week</span>
                         )}
                       </th>
-                      <td>{week.minimumDays ? 'Needed' : 'Flexible'}</td>
-                      <td>{week.officeDays}</td>
-                      <td>{week.minimumDays}</td>
-                      <td>{week.additionalDays}</td>
+                      <td>{week.flexibleMinimumDays ? 'Needed' : 'Flexible'}</td>
+                      <td>{week.baselineDays}</td>
+                      <td>{week.flexibleMinimumDays}</td>
+                      <td>{week.baselineAdditionalDays}</td>
                     </tr>
                   ))}
                 </tbody>

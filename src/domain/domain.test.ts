@@ -63,6 +63,9 @@ describe('weekly count recommendations', () => {
         officeDays: 3,
         additionalDays: 1,
         minimumDays: 3,
+        baselineDays: 3,
+        baselineAdditionalDays: 1,
+        flexibleMinimumDays: 3,
       });
       expect(result.weeks.every((week) => week.officeDays === 3 && week.minimumDays === 3)).toBe(
         true,
@@ -80,6 +83,7 @@ describe('weekly count recommendations', () => {
     };
     const result = recommendWeeks(snapshot);
     expect(result.weeks.every((week) => week.officeDays <= rolling.n)).toBe(true);
+    expect(result.weeks.every((week) => week.baselineDays === rolling.n)).toBe(true);
     const selected = result.weeks.flatMap((week) =>
       dateRange(week.weekStart, addDays(week.weekStart, 6)).slice(0, week.additionalDays),
     );
@@ -112,6 +116,9 @@ describe('weekly count recommendations', () => {
       officeDays: 6,
       additionalDays: 6,
       minimumDays: 6,
+      baselineDays: 6,
+      baselineAdditionalDays: 6,
+      flexibleMinimumDays: 6,
     });
   });
 
@@ -135,6 +142,9 @@ describe('weekly count recommendations', () => {
       officeDays: 2,
       additionalDays: 2,
       minimumDays: 2,
+      baselineDays: 2,
+      baselineAdditionalDays: 2,
+      flexibleMinimumDays: 2,
     });
   });
 
@@ -186,6 +196,36 @@ describe('weekly count recommendations', () => {
       officeDays: 0,
       additionalDays: 0,
       minimumDays: 0,
+      baselineDays: 3,
+      baselineAdditionalDays: 3,
+      flexibleMinimumDays: 0,
+    });
+  });
+
+  it('keeps three days as the future baseline when a rolling window permits skipping', () => {
+    const result = recommendWeeks({
+      policy: { ...rolling, x: 1, y: 2, startDate: today },
+      today,
+      records: [],
+    });
+    expect(result.weeks[1]).toMatchObject({
+      baselineDays: 3,
+      baselineAdditionalDays: 3,
+      flexibleMinimumDays: 0,
+    });
+    expect(result.weeks[1].officeDays).toBeLessThanOrEqual(3);
+  });
+
+  it('shows a one-day alternative instead of only all-or-nothing flexibility', () => {
+    const result = recommendWeeks({
+      policy: { ...rolling, x: 2, y: 3, n: 3, mode: 'average', startDate: today },
+      today,
+      records: [entry(today), ...simulatedEntries(dateRange(addDays(today, 1), addDays(today, 4)))],
+    });
+    expect(result.weeks[1]).toMatchObject({
+      baselineDays: 3,
+      baselineAdditionalDays: 3,
+      flexibleMinimumDays: 1,
     });
   });
 
@@ -212,6 +252,22 @@ describe('weekly count recommendations', () => {
       officeDays: 3,
       additionalDays: 0,
       minimumDays: 0,
+    });
+  });
+
+  it('keeps already saved extra days in the baseline without asking to plan more', () => {
+    const policy = { ...rolling, x: 1, y: 2, startDate: today };
+    const result = recommendWeeks({
+      policy,
+      today,
+      records: simulatedEntries(dateRange(addDays(today, 7), addDays(today, 10))),
+    });
+    expect(result.weeks[1]).toMatchObject({
+      officeDays: 4,
+      additionalDays: 0,
+      baselineDays: 4,
+      baselineAdditionalDays: 0,
+      flexibleMinimumDays: 0,
     });
   });
 

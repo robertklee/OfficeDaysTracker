@@ -670,7 +670,7 @@ main {
 }
 .outlook-tile {
   min-width: 0;
-  min-height: 152px;
+  min-height: 176px;
   padding: 14px;
   display: flex;
   flex-direction: column;
@@ -728,6 +728,31 @@ main {
 .outlook-minimum {
   color: var(--muted-strong);
   font-size: 0.7rem;
+}
+.outlook-reliability {
+  --confidence-fill: 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted-strong);
+  font-size: 0.68rem;
+}
+.outlook-reliability::before {
+  content: '';
+  flex: 0 0 28px;
+  height: 5px;
+  border-radius: 99px;
+  background: linear-gradient(
+    to right,
+    var(--office) var(--confidence-fill),
+    var(--line-strong) var(--confidence-fill)
+  );
+}
+.outlook-reliability[data-confidence='conditional'] {
+  --confidence-fill: 66%;
+}
+.outlook-reliability[data-confidence='tentative'] {
+  --confidence-fill: 33%;
 }
 .week-secondary {
   display: grid;

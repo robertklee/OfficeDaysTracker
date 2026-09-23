@@ -243,11 +243,13 @@ focus, 44px touch targets, and reduced-motion support.
   Browse previous or next weeks, or return with **This week**. Past weeks show
   logged attendance; future weeks show recommendations within the forecast window.
   Weeks beyond that window remain editable without a recommended target.
-  The next six weeks appear as **Needed** or **Flexible** cards with suggested
-  office-day counts; selecting a card opens that week. The full outlook shows
-  the minimum days needed in each week and marks guidance conditional while
-  future days are unplanned. The planner favors the policy's weekly frequency
-  and suggests extra days only when the forecast needs them.
+  The next six weeks start with the policy's weekly frequency (normally three
+  office days), with a verified option to attend fewer days or skip a week when
+  other weeks follow their baseline. Saved commitments and necessary catch-up
+  can raise a week's count; blocked days can lower what is possible. Each card
+  shows relative confidence that becomes more tentative as unresolved weeks
+  accumulate, not a numeric probability. Selecting a card opens that week;
+  the full outlook shows the baseline and possible reductions.
   Past and present entries are logged; future entries are plans. Editing protected
   days requires confirmation. Completed-week results and a collapsed weekly outlook
   sit below the entry controls.
