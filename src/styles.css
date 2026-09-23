@@ -11,18 +11,28 @@
   --surface: #fff;
   --ink: #192235;
   --muted: #637086;
+  --muted-strong: #4c586c;
   --line: #e2e6ef;
   --line-strong: #b9c3d4;
   --accent: #3659e3;
   --accent-hover: #2746c2;
   --accent-soft: #eef2ff;
   --night: #192235;
-  --office: #2949bb;
-  --office-bg: #edf2ff;
-  --remote: #17645f;
-  --remote-bg: #edf7f5;
-  --leave: #6a4897;
-  --leave-bg: #f5f1fa;
+  --office: #2845ab;
+  --office-bg: #cedaff;
+  --office-border: #a8baf2;
+  --remote: #006658;
+  --remote-bg: #c4e9d7;
+  --remote-border: #90d1bd;
+  --vacation: #92372d;
+  --vacation-bg: #fac5b9;
+  --vacation-border: #e4b4a5;
+  --sick: #863161;
+  --sick-bg: #f5cfe9;
+  --sick-border: #c8a9e2;
+  --holiday: #695b00;
+  --holiday-bg: #ffe59b;
+  --holiday-border: #dfc47e;
   --warning: #8a4e12;
   --warning-bg: #fff8ed;
   --danger: #b22e42;
@@ -475,9 +485,9 @@ main {
 }
 .attendance-tools .office.selected {
   color: var(--office);
-  border-color: var(--accent);
+  border-color: var(--office);
   background: var(--office-bg);
-  box-shadow: 0 0 0 1px var(--accent);
+  box-shadow: 0 0 0 1px var(--office);
 }
 .attendance-tools .remote.selected {
   color: var(--remote);
@@ -496,15 +506,30 @@ main {
   pointer-events: none;
   color: var(--muted);
 }
+.tool-select.vacation {
+  --tool-color: var(--vacation);
+  --tool-bg: var(--vacation-bg);
+}
+.tool-select.sick {
+  --tool-color: var(--sick);
+  --tool-bg: var(--sick-bg);
+}
+.tool-select.holiday {
+  --tool-color: var(--holiday);
+  --tool-bg: var(--holiday-bg);
+}
+.tool-select:is(.vacation, .sick, .holiday) > .icon {
+  color: var(--tool-color);
+}
 .tool-select select {
   padding-left: 36px;
   font-size: 0.88rem;
 }
 .tool-select select.selected {
-  border-color: var(--leave);
-  box-shadow: 0 0 0 1px var(--leave);
-  color: var(--leave);
-  background-color: var(--leave-bg);
+  border-color: var(--tool-color);
+  box-shadow: 0 0 0 1px var(--tool-color);
+  color: var(--tool-color);
+  background-color: var(--tool-bg);
 }
 .week-grid {
   display: grid;
@@ -652,13 +677,13 @@ main {
   gap: 10px;
   text-align: left;
   background: var(--remote-bg);
-  border-color: #c2ddd7;
+  border-color: var(--remote-border);
   color: var(--ink);
   font-weight: 400;
 }
 .outlook-tile.needed {
   background: var(--office-bg);
-  border-color: #c4d1f9;
+  border-color: var(--office-border);
 }
 .outlook-tile[aria-pressed='true'] {
   outline: 2px solid var(--accent);
@@ -673,20 +698,20 @@ main {
   align-items: center;
   justify-content: space-between;
   gap: 4px;
-  color: var(--muted);
+  color: var(--muted-strong);
   font-size: 0.73rem;
 }
 .outlook-tag {
   align-self: flex-start;
   padding: 3px 7px;
   border-radius: 5px;
-  background: #d9eeea;
+  background: #bcdfd1;
   color: var(--remote);
   font-size: 0.68rem;
   font-weight: 650;
 }
 .outlook-tile.needed .outlook-tag {
-  background: #dce5ff;
+  background: #bbcaff;
   color: var(--office);
 }
 .outlook-count {
@@ -699,7 +724,7 @@ main {
   line-height: 1;
 }
 .outlook-minimum {
-  color: var(--muted);
+  color: var(--muted-strong);
   font-size: 0.7rem;
 }
 .week-secondary {
@@ -980,6 +1005,8 @@ legend {
   margin: 14px 0;
 }
 .calendar-grid {
+  display: grid;
+  gap: 5px;
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
@@ -987,6 +1014,7 @@ legend {
 .calendar-row {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 5px;
 }
 .calendar-row [role='gridcell'] {
   min-width: 0;
@@ -997,9 +1025,7 @@ legend {
   color: var(--muted);
   text-align: center;
   padding: 12px 0;
-  background: #f8f9fc;
-  border: 1px solid var(--line);
-  border-radius: 8px 8px 0 0;
+  background: transparent;
 }
 .day {
   position: relative;
@@ -1007,7 +1033,7 @@ legend {
   min-width: 0;
   height: 105px;
   border: 1px solid var(--line);
-  border-radius: 0;
+  border-radius: 9px;
   padding: 10px;
   display: flex;
   align-items: flex-start;
@@ -1025,34 +1051,50 @@ legend {
 .week-day.office {
   color: var(--office);
   background: var(--office-bg);
-  border-color: #c4d1f9;
+  border-color: var(--office-border);
 }
 .day.remote,
 .week-day.remote {
   color: var(--remote);
   background: var(--remote-bg);
-  border-color: #c2ddd7;
+  border-color: var(--remote-border);
 }
 .day.vacation,
-.week-day.vacation,
-.day.holiday,
-.week-day.holiday {
-  color: var(--leave);
-  background: var(--leave-bg);
-  border-color: #daceea;
+.week-day.vacation {
+  color: var(--vacation);
+  background: var(--vacation-bg);
+  border-color: var(--vacation-border);
 }
 .day.sick,
 .week-day.sick {
-  color: var(--warning);
-  background: var(--warning-bg);
-  border-color: #efdfbf;
+  color: var(--sick);
+  background: var(--sick-bg);
+  border-color: var(--sick-border);
+}
+.day.holiday,
+.week-day.holiday {
+  color: var(--holiday);
+  background: var(--holiday-bg);
+  border-color: var(--holiday-border);
+}
+.day:is(.office, .remote, .vacation, .sick, .holiday)::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 4px;
+  border-radius: 8px 8px 0 0;
+  background: currentColor;
+  pointer-events: none;
+}
+.day.planned::before {
+  height: 2px;
 }
 .day.hint {
-  background: #f7f9ff;
+  background: #f8f9fb;
 }
 .day.weekend {
-  background: #f0f2f6;
-  color: var(--muted);
+  background: #edf0f4;
+  color: var(--muted-strong);
 }
 .day.planned {
   box-shadow: inset 0 0 0 1px currentColor;
@@ -1070,7 +1112,7 @@ legend {
   z-index: 2;
 }
 .day.adjacent .day-number {
-  color: var(--muted);
+  color: var(--muted-strong);
 }
 .day.adjacent[aria-current='date'] .day-number {
   color: #fff;
@@ -1113,18 +1155,29 @@ legend {
   color: var(--muted);
   font-size: 0.72rem;
 }
-.office-dot::before,
-.remote-dot::before {
+.legend :is(.office-dot, .remote-dot, .vacation-dot, .sick-dot, .holiday-dot)::before {
   content: '';
   display: inline-block;
-  width: 7px;
-  height: 7px;
+  width: 10px;
+  height: 10px;
   margin-right: 6px;
-  border-radius: 50%;
-  background: var(--accent);
+  border-radius: 3px;
+  background: var(--swatch);
 }
-.remote-dot::before {
-  background: var(--remote);
+.office-dot {
+  --swatch: var(--office);
+}
+.vacation-dot {
+  --swatch: var(--vacation);
+}
+.sick-dot {
+  --swatch: var(--sick);
+}
+.holiday-dot {
+  --swatch: var(--holiday);
+}
+.remote-dot {
+  --swatch: var(--remote);
 }
 .range-controls {
   align-items: flex-end;
@@ -1636,6 +1689,13 @@ footer a {
   .calendar-card {
     border-left: 0;
     border-right: 0;
+  }
+  .calendar-grid,
+  .calendar-row {
+    gap: 0;
+  }
+  .day {
+    border-radius: 0;
   }
   .week-summary {
     padding: 20px 16px;

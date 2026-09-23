@@ -30,7 +30,9 @@ export function AttendanceTools({
           {dayLabels[type]}
         </button>
       ))}
-      <span className="tool-select">
+      <span
+        className={`tool-select ${['vacation', 'sick', 'holiday'].includes(value) ? value : ''}`}
+      >
         <Icon name="holiday" />
         <select
           aria-label="Time off"

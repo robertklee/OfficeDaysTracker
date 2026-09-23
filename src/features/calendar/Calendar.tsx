@@ -383,9 +383,12 @@ export function Calendar() {
         </div>
         <div className="calendar-footer">
           <div className="legend">
-            <span className="office-dot">Office</span>
-            <span className="remote-dot">Remote</span>
-            <span>Outlined = planned</span>
+            {dayTypes.map((type) => (
+              <span key={type} className={`${type}-dot`}>
+                {labels[type]}
+              </span>
+            ))}
+            <span>Dashed = planned</span>
             <span>! = protected</span>
           </div>
           <button disabled={blocked} onClick={() => showDetail(focusDate)}>
@@ -399,7 +402,7 @@ export function Calendar() {
             details or Escape to cancel.
           </p>
           <p>
-            Faint blue days are unentered, not office. Gray days are weekends. Past plans need
+            Light days without labels are unentered. Gray days are weekends. Past plans need
             confirmation in day details.
           </p>
         </details>
