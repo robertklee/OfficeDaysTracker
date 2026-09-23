@@ -252,6 +252,11 @@ focus, 44px touch targets, and reduced-motion support.
 - **Settings:** typed policy validation and recalculation preview; fixed IANA
   timezone; complete JSON backups; attendance-only CSV; reviewed atomic import;
   explicit local/account-planner deletion; and local persistent-storage requests.
+- **New policy defaults:** the start date is a complete reporting window before
+  the current policy-local week (12 weeks for the suggested rolling policy).
+  Changing the policy, window, week start, or timezone updates the suggested
+  date until the user edits it. Existing policies keep their saved start dates.
+  Unlogged past weeks can count as missed; setup warns before confirmation.
 - **Account:** signup/login/logout, cross-device planner persistence, explicit
   local-data import, and account/local separation.
 

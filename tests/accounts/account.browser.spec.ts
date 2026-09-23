@@ -313,7 +313,7 @@ test('lifecycle: an offline account save stays pending and exportable until an e
   await page.getByRole('button', { name: 'Remote', exact: true }).click();
   await day(page, '2026-03-25').click();
   await expect(page.getByRole('heading', { name: 'Account save not confirmed' })).toBeVisible();
-  await expect(page.getByRole('alert')).toContainText('internet connection is required');
+  await expect(page.getByRole('alert')).toContainText('Cannot reach the account service');
   await expect(page.locator('.saved-status')).toHaveText('Storage error');
   await expect(day(page, '2026-03-25')).toHaveAttribute('aria-label', /unentered/);
   const downloadEvent = page.waitForEvent('download');

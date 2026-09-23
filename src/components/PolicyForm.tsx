@@ -1,10 +1,18 @@
-import { useState } from 'react';
-import { dateInZone, formatDate } from '../domain/dates';
+import { useEffect, useState } from 'react';
+import { dateInZone, formatDate, isTimeZone } from '../domain/dates';
 import { formulas, weekdayName, evaluate } from '../domain/policies';
 import { forecast } from '../domain/projection';
-import { defaultPolicy, policySchema, type Policy } from '../domain/schema';
+import { defaultPolicy, defaultPolicyStartDate, policySchema, type Policy } from '../domain/schema';
 import { useStore } from '../app/store';
 import { useDraftWarning } from '../app/useDraftWarning';
+
+function withDefaultStartDate(policy: Policy): Policy {
+  const weeks = policy.kind === 'rolling' ? policy.y : policy.windowWeeks;
+  if (!Number.isInteger(weeks) || weeks < 1 || weeks > 52 || !isTimeZone(policy.timeZone))
+    return policy;
+  const today = dateInZone(new Date().toISOString(), policy.timeZone);
+  return { ...policy, startDate: defaultPolicyStartDate(today, policy) };
+}
 
 export function PolicyForm({ setup = false }: { setup?: boolean }) {
   const {
@@ -21,14 +29,29 @@ export function PolicyForm({ setup = false }: { setup?: boolean }) {
   const [draft, setDraft] = useState<Policy>(
     () => snapshot?.dataset.policy ?? defaultPolicy(today, timeZone),
   );
+  const [automaticStartDate, setAutomaticStartDate] = useState(() => !snapshot?.dataset.policy);
   const [preview, setPreview] = useState<Policy | null>(null);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [dirty, setDirty] = useState(false);
   useDraftWarning(dirty);
+  useEffect(() => {
+    if (!automaticStartDate) return;
+    const updated = withDefaultStartDate(draft);
+    if (updated.startDate !== draft.startDate) {
+      setDraft(updated);
+      setPreview(null);
+    }
+  }, [automaticStartDate, draft, today]);
   if (!snapshot) return null;
   const patch = (values: Partial<Policy>) => {
-    setDraft((current) => ({ ...current, ...values }) as Policy);
+    const affectsStartDate =
+      'weekStart' in values || 'timeZone' in values || 'y' in values || 'windowWeeks' in values;
+    setDraft((current) => {
+      const next = { ...current, ...values } as Policy;
+      return automaticStartDate && affectsStartDate ? withDefaultStartDate(next) : next;
+    });
+    if ('startDate' in values) setAutomaticStartDate(false);
     setDirty(true);
     setPreview(null);
     setMessage('');
@@ -39,13 +62,13 @@ export function PolicyForm({ setup = false }: { setup?: boolean }) {
       timeZone: draft.timeZone,
       weekStart: draft.weekStart,
     };
-    setDraft(
+    const next: Policy =
       kind === 'rolling'
         ? { ...base, kind, x: 8, y: 12, n: 3, mode: 'average' }
         : kind === 'weekly'
           ? { ...base, kind, n: 3, windowWeeks: 4 }
-          : { ...base, kind, requiredDays: [2, 3, 4], windowWeeks: 4 },
-    );
+          : { ...base, kind, requiredDays: [2, 3, 4], windowWeeks: 4 };
+    setDraft(automaticStartDate ? withDefaultStartDate(next) : next);
     setPreview(null);
     setDirty(true);
   };
@@ -184,6 +207,12 @@ export function PolicyForm({ setup = false }: { setup?: boolean }) {
           />
         </label>
       </div>
+      {setup && (
+        <p className="muted">
+          The suggested start date includes a full reporting window. Unlogged past weeks may count
+          as missed. Change it if your policy started later.
+        </p>
+      )}
       {draft.kind === 'weekdays' && (
         <fieldset>
           <legend>Required weekdays</legend>

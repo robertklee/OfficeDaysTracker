@@ -265,6 +265,74 @@ test('new planners start on Sunday in both home and calendar', async ({ page }) 
   await expect(page.getByLabel('Week starts on')).toHaveValue('7');
 });
 
+test('a new policy defaults to a full window, follows selections, and preserves a chosen date', async ({
+  page,
+}) => {
+  await page.clock.install({ time: new Date('2026-03-24T19:00:00Z') });
+  await page.goto('/dashboard');
+  const startDate = page.getByLabel('Start date', { exact: true });
+  await expect(startDate).toHaveValue('2025-12-28');
+  await expect(page.getByText(/Unlogged past weeks may count as missed/)).toBeVisible();
+  await page.getByLabel('Policy type').selectOption('weekly');
+  await expect(startDate).toHaveValue('2026-02-22');
+  await page.getByLabel('Reporting window (weeks)').fill('6');
+  await expect(startDate).toHaveValue('2026-02-08');
+  await page.getByLabel('Week starts on').selectOption('1');
+  await expect(startDate).toHaveValue('2026-02-09');
+  await page.getByLabel('Policy type').selectOption('weekdays');
+  await expect(startDate).toHaveValue('2026-02-23');
+  await startDate.fill('2026-03-23');
+  await page.getByLabel('Reporting window (weeks)').fill('8');
+  await page.getByLabel('Week starts on').selectOption('7');
+  await page.getByLabel('Policy type').selectOption('weekly');
+  await expect(startDate).toHaveValue('2026-03-23');
+  await page.getByRole('button', { name: 'Preview policy', exact: true }).click();
+  await expect(page.getByLabel('Policy preview')).toContainText('First full week: Mar 29, 2026');
+  await page.getByRole('button', { name: 'Confirm policy & start' }).click();
+  await expect(page.getByRole('heading', { name: 'This week', exact: true })).toBeVisible();
+  await page.goto('/settings');
+  await expect(startDate).toHaveValue('2026-03-23');
+  await page.getByLabel('Policy type').selectOption('weekdays');
+  await expect(startDate).toHaveValue('2026-03-23');
+});
+
+test('the full-window default applies today and discloses missing history', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 740 });
+  await page.clock.install({ time: new Date('2026-03-24T19:00:00Z') });
+  await page.goto('/dashboard');
+  await expect(page.getByLabel('Start date', { exact: true })).toHaveValue('2025-12-28');
+  await page.getByRole('button', { name: 'Preview policy', exact: true }).click();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  );
+  await expect(page.getByLabel('Policy preview')).toContainText('First full week: Dec 28, 2025');
+  await page.getByRole('button', { name: 'Confirm policy & start' }).click();
+  await expect(page.getByRole('heading', { name: 'Below target' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Review your plan' })).toBeVisible();
+  await day(page, '2026-03-24').click();
+  await expect(page.getByTestId('office-logged')).toHaveText('1');
+});
+
+test('the suggested start date uses the selected policy timezone', async ({ page }) => {
+  await page.clock.install({ time: new Date('2026-03-29T00:30:00Z') });
+  await page.goto('/dashboard');
+  const startDate = page.getByLabel('Start date', { exact: true });
+  await expect(startDate).toHaveValue('2025-12-28');
+  await page.getByLabel('Timezone').fill('Asia/Tokyo');
+  await expect(startDate).toHaveValue('2026-01-04');
+  await page.getByLabel('Policy type').selectOption('weekly');
+  await expect(startDate).toHaveValue('2026-03-01');
+  await page.getByLabel('Week starts on').selectOption('1');
+  await expect(startDate).toHaveValue('2026-02-23');
+  await page.clock.setFixedTime(new Date('2026-04-05T00:30:00Z'));
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await expect(startDate).toHaveValue('2026-03-02');
+  await startDate.fill('2026-03-01');
+  await page.clock.setFixedTime(new Date('2026-04-12T00:30:00Z'));
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await expect(startDate).toHaveValue('2026-03-01');
+});
+
 test('week navigation edits the displayed week, updates totals and preserves undo', async ({
   page,
 }) => {
@@ -468,6 +536,7 @@ test.describe('recommendation failures', () => {
 test('partial first weeks and required-weekday policies have clear targets', async ({ page }) => {
   await page.clock.install({ time: new Date('2026-03-24T19:00:00Z') });
   await page.goto('/dashboard');
+  await page.getByLabel('Start date', { exact: true }).fill('2026-03-24');
   await page.getByRole('button', { name: 'Preview policy', exact: true }).click();
   await page.getByRole('button', { name: 'Confirm policy & start' }).click();
   await expect(page.getByRole('heading', { name: 'No target yet' })).toBeVisible();

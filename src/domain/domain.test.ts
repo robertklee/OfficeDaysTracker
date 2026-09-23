@@ -11,7 +11,13 @@ import {
 import { evaluate } from './policies';
 import { forecast } from './projection';
 import { recommendWeeks, simulatedEntries, strategyLabel, suggest } from './planning';
-import { defaultPolicy, policySchema, type Entry, type Policy } from './schema';
+import {
+  defaultPolicy,
+  defaultPolicyStartDate,
+  policySchema,
+  type Entry,
+  type Policy,
+} from './schema';
 
 const start = '2026-01-05';
 const today = '2026-03-30';
@@ -151,15 +157,30 @@ const weekly: Policy = {
 };
 
 describe('civil dates and policy validation', () => {
-  it('defaults new planners to Sunday-start weeks and average of the best weeks', () => {
-    expect(defaultPolicy('2026-03-24', 'America/Los_Angeles')).toMatchObject({
+  it('defaults new planners to a complete reporting window ending this week', () => {
+    const policy = defaultPolicy('2026-03-24', 'America/Los_Angeles');
+    expect(policy).toMatchObject({
       kind: 'rolling',
       mode: 'average',
       x: 8,
       y: 12,
       n: 3,
       weekStart: 7,
+      startDate: '2025-12-28',
     });
+    expect(firstEligibleWeek(policy.startDate, policy.weekStart)).toBe(policy.startDate);
+    expect(evaluate(policy, [], '2026-03-24').state).toBe('shortfall');
+    expect(
+      defaultPolicyStartDate('2026-03-24', {
+        ...weekly,
+        weekStart: 7,
+        windowWeeks: 4,
+      }),
+    ).toBe('2026-02-22');
+    expect(defaultPolicyStartDate('2026-03-24', weekly)).toBe('2026-02-23');
+    expect(defaultPolicyStartDate('2026-03-24', { ...weekly, weekStart: 6, windowWeeks: 6 })).toBe(
+      '2026-02-07',
+    );
   });
 
   it('validates real Gregorian keys and IANA zones', () => {

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { isCivilDate, isTimeZone } from './dates';
+import { addDays, isCivilDate, isTimeZone, startOfWeek } from './dates';
 
 export const civilDateSchema = z
   .string()
@@ -102,13 +102,22 @@ export const emptyDataset = (): Dataset => ({
   policy: null,
   preferences: { includeWeekends: false },
 });
-export const defaultPolicy = (today: string, timeZone: string): Policy => ({
-  kind: 'rolling',
-  mode: 'average',
-  x: 8,
-  y: 12,
-  n: 3,
-  startDate: today,
-  timeZone,
-  weekStart: 7,
-});
+export const defaultPolicyStartDate = (today: string, policy: Policy): string =>
+  addDays(
+    startOfWeek(today, policy.weekStart),
+    -7 * (policy.kind === 'rolling' ? policy.y : policy.windowWeeks),
+  );
+
+export const defaultPolicy = (today: string, timeZone: string): Policy => {
+  const policy: Policy = {
+    kind: 'rolling',
+    mode: 'average',
+    x: 8,
+    y: 12,
+    n: 3,
+    startDate: today,
+    timeZone,
+    weekStart: 7,
+  };
+  return { ...policy, startDate: defaultPolicyStartDate(today, policy) };
+};
