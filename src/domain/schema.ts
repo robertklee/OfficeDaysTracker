@@ -55,7 +55,7 @@ export const policySchema = z
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['x'],
-        message: 'X cannot be greater than Y.',
+        message: 'Best weeks cannot exceed the total weeks in the window.',
       });
     }
   });
@@ -110,5 +110,5 @@ export const defaultPolicy = (today: string, timeZone: string): Policy => ({
   n: 3,
   startDate: today,
   timeZone,
-  weekStart: 1,
+  weekStart: 7,
 });

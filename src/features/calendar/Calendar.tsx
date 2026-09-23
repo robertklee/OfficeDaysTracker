@@ -2,6 +2,11 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerE
 import { useStore } from '../../app/store';
 import { useDraftWarning } from '../../app/useDraftWarning';
 import { Dialog } from '../../components/Dialog';
+import {
+  AttendanceTools,
+  dayLabels as labels,
+  type DayTool,
+} from '../../components/AttendanceTools';
 import { editAction, toInput, type EditAction, type StoredSnapshot } from '../../data/repository';
 import {
   addDays,
@@ -18,16 +23,8 @@ import {
 import { weekdayName } from '../../domain/policies';
 import { dayTypes, type DayType, type EntryInput } from '../../domain/schema';
 
-type Tool = DayType | 'erase';
 type Selection = { start: string; end: string };
 type Detail = { value: EntryInput; snapshot: StoredSnapshot };
-const labels: Record<DayType, string> = {
-  office: 'Office',
-  remote: 'Remote',
-  vacation: 'Vacation',
-  sick: 'Sick',
-  holiday: 'Holiday',
-};
 const symbols: Record<DayType, string> = {
   office: 'O',
   remote: 'R',
@@ -47,7 +44,7 @@ export function Calendar() {
   const { snapshot, today, saving, pending, perform, error, storageLabel } = store;
   const [month, setMonth] = useState(today);
   const [focusDate, setFocusDate] = useState(today);
-  const [tool, setTool] = useState<Tool>('office');
+  const [tool, setTool] = useState<DayTool>('office');
   const [selection, setSelection] = useState<Selection | null>(null);
   const [rangeStart, setRangeStart] = useState(today);
   const [rangeEnd, setRangeEnd] = useState(today);
@@ -69,7 +66,7 @@ export function Calendar() {
   const grid = useRef<HTMLDivElement>(null);
   const focusRequested = useRef(false);
   const policy = snapshot?.dataset.policy;
-  const weekStart = policy?.weekStart ?? 1;
+  const weekStart = policy?.weekStart ?? 7;
   const includeWeekends = snapshot?.dataset.preferences.includeWeekends ?? false;
   const dates = useMemo(() => monthGrid(month, weekStart), [month, weekStart]);
   const records = useMemo(
@@ -106,7 +103,7 @@ export function Calendar() {
       if (event.key === 'Escape') {
         drag.current = null;
         setSelection(null);
-        setMessage('Range preview cancelled. No dates changed.');
+        setMessage('Selection cancelled.');
       }
     };
     window.addEventListener('keydown', cancel);
@@ -160,7 +157,7 @@ export function Calendar() {
       };
     });
     if (!values.length) {
-      setMessage('No weekdays in that range. Enable Include weekends to paint it.');
+      setMessage('No weekdays selected. Turn on weekends to include these days.');
       setSelection(null);
       return;
     }
@@ -256,9 +253,8 @@ export function Calendar() {
     <>
       <div className="page-heading">
         <div>
-          <p className="eyebrow">MAKE ROOM FOR YOUR WEEK</p>
-          <h1>Attendance calendar</h1>
-          <p className="muted">Log what happened. Plan what comes next.</p>
+          <h1>Calendar</h1>
+          <p className="muted">Edit past days or plan ahead.</p>
         </div>
         <button disabled={!store.undoAvailable || blocked} onClick={() => void store.undo()}>
           Undo last change
@@ -266,33 +262,7 @@ export function Calendar() {
       </div>
       <section className="card calendar-card">
         <div className="calendar-tools">
-          <div className="tool-group" aria-label="Painting tool">
-            {(['office', 'remote', 'erase'] as const).map((value) => (
-              <button
-                key={value}
-                className={`tool ${value} ${tool === value ? 'selected' : ''}`}
-                aria-pressed={tool === value}
-                onClick={() => setTool(value)}
-              >
-                {value === 'erase' ? 'Eraser' : labels[value]}
-              </button>
-            ))}
-          </div>
-          <label className="compact-label">
-            Other type
-            <select
-              aria-label="Other attendance type"
-              value={['vacation', 'sick', 'holiday'].includes(tool) ? tool : ''}
-              onChange={(event) => {
-                if (event.target.value) setTool(event.target.value as DayType);
-              }}
-            >
-              <option value="">Leave types</option>
-              <option value="vacation">Vacation</option>
-              <option value="sick">Sick</option>
-              <option value="holiday">Holiday</option>
-            </select>
-          </label>
+          <AttendanceTools value={tool} onChange={setTool} />
           <label className="check">
             <input
               type="checkbox"
@@ -314,7 +284,7 @@ export function Calendar() {
           <h2 aria-live="polite">{monthLabel(month)}</h2>
           <div className="button-row">
             <button aria-label="Previous month" onClick={() => jump(shiftMonth(month, -1))}>
-              Prev
+              Previous
             </button>
             <button
               onClick={() => {
@@ -330,8 +300,7 @@ export function Calendar() {
           </div>
         </div>
         <p className="calendar-help" id="calendar-help">
-          Paint with {tool === 'erase' ? 'Eraser' : labels[tool]}. Drag a range, or use arrows and
-          Shift+arrows, then Enter. Press D for details. Escape cancels.
+          Choose a type, then tap or drag across days.
         </p>
         <div
           ref={grid}
@@ -345,7 +314,7 @@ export function Calendar() {
           onPointerCancel={() => {
             drag.current = null;
             setSelection(null);
-            setMessage('Range preview cancelled. No dates changed.');
+            setMessage('Selection cancelled.');
           }}
           onLostPointerCapture={() => {
             if (drag.current) {
@@ -367,7 +336,7 @@ export function Calendar() {
                 const entry = records.get(date);
                 const hint =
                   !entry && !isWeekend(date) && touchedWeeks.has(startOfWeek(date, weekStart));
-                const accessible = `${formatDate(date, true)}, ${entry ? `${labels[entry.type]}, ${entry.status}, ${entry.priority === 'must' ? 'must priority, protected' : 'normal priority'}` : hint ? 'unentered, visual remote hint only' : 'unentered'}${isWeekend(date) ? ', weekend' : ''}${date === today ? ', today' : ''}`;
+                const accessible = `${formatDate(date, true)}, ${entry ? `${labels[entry.type]}, ${entry.status}, ${entry.priority === 'must' ? 'protected' : 'unprotected'}` : 'unentered'}${isWeekend(date) ? ', weekend' : ''}${date === today ? ', today' : ''}`;
                 return (
                   <div key={date} role="gridcell" aria-selected={selected.has(date)}>
                     <button
@@ -422,14 +391,20 @@ export function Calendar() {
             Details for {formatDate(focusDate)}
           </button>
         </div>
-        <p className="calendar-help">
-          Faint green means an unentered weekday in a touched week, not a saved remote day. Dark
-          gray means an unentered weekend. Recorded weekend office days can earn policy credit. Past
-          plans need explicit confirmation.
-        </p>
+        <details className="calendar-help">
+          <summary>Keyboard shortcuts & colors</summary>
+          <p>
+            Arrow keys move between days. Shift+arrows selects a range; Enter applies. Press D for
+            details or Escape to cancel.
+          </p>
+          <p>
+            Faint green days are unentered, not remote. Gray days are weekends. Past plans need
+            confirmation in day details.
+          </p>
+        </details>
       </section>
       <section className="card">
-        <h2>Paint a date range</h2>
+        <h2>Edit a date range</h2>
         <div className="button-row range-controls">
           <label>
             From
@@ -452,7 +427,7 @@ export function Calendar() {
             disabled={blocked || !isCivilDate(rangeStart) || !isCivilDate(rangeEnd)}
             onClick={() => paint(rangeStart, rangeEnd)}
           >
-            Apply selected tool
+            Apply to range
           </button>
           <button
             onClick={() => {
@@ -502,7 +477,7 @@ export function Calendar() {
                 </select>
               </label>
               <label>
-                Entry status
+                Status
                 <select
                   value={detail.value.status}
                   onChange={(event) =>
@@ -516,9 +491,9 @@ export function Calendar() {
                   }
                 >
                   <option value="actual" disabled={detail.value.date > today}>
-                    Actual (confirmed)
+                    Logged
                   </option>
-                  <option value="planned">Planned (unconfirmed)</option>
+                  <option value="planned">Planned</option>
                 </select>
               </label>
             </div>
@@ -533,7 +508,7 @@ export function Calendar() {
                   })
                 }
               />
-              Must priority - protect this commitment
+              Protect this day
             </label>
             <label htmlFor="day-notes">Notes</label>
             <textarea
@@ -546,12 +521,11 @@ export function Calendar() {
               }
             />
             <p className="muted">
-              Protection restricts suggestions, not policy requirements. Vacation, sick leave, and
-              holidays are never automatically converted.
+              Protected days require confirmation before editing. They do not change your target.
             </p>
             <div className="button-row">
               <button className="primary" disabled={blocked}>
-                Save day details
+                Save day
               </button>
               <button
                 type="button"
@@ -563,7 +537,7 @@ export function Calendar() {
                   )
                 }
               >
-                Erase entry
+                Clear day
               </button>
             </div>
           </form>
@@ -572,8 +546,7 @@ export function Calendar() {
       {confirmation && (
         <Dialog title="Change protected days?" onClose={() => setConfirmation(null)}>
           <p>
-            This manual change affects {confirmation.count} must-priority{' '}
-            {confirmation.count === 1 ? 'entry' : 'entries'}. Your policy target will not change.
+            Change {confirmation.count} protected {confirmation.count === 1 ? 'day' : 'days'}?
           </p>
           <div className="button-row">
             <button
@@ -585,7 +558,7 @@ export function Calendar() {
                 void save(action);
               }}
             >
-              Confirm protected changes
+              Change protected days
             </button>
             <button onClick={() => setConfirmation(null)}>Cancel</button>
           </div>
@@ -599,11 +572,11 @@ export function Calendar() {
               checked={includeProtected}
               onChange={(event) => setIncludeProtected(event.target.checked)}
             />
-            Explicitly include protected planned entries
+            Include protected days
           </label>
           <p>
-            Remove {clearable.length} planned entries. All actual attendance will be preserved. This
-            is one undoable action.
+            Remove {clearable.length} {clearable.length === 1 ? 'plan' : 'plans'}? Logged days stay.
+            You can undo this.
           </p>
           <div className="button-row">
             <button
@@ -618,7 +591,7 @@ export function Calendar() {
                 void save(action);
               }}
             >
-              Confirm removal of {clearable.length} plans
+              Remove {clearable.length} {clearable.length === 1 ? 'plan' : 'plans'}
             </button>
             <button onClick={() => setClearDialog(false)}>Cancel</button>
           </div>

@@ -47,20 +47,19 @@ test('five-year mobile-sized dataset meets feedback and full recalculation budge
     buffer: Buffer.from(JSON.stringify(dataset)),
   });
   await page.getByRole('button', { name: 'Confirm replacement', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Settings & backups' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible();
   await page.goto('/dashboard');
-  await expect(page.getByText('Current + next 52 weeks')).toBeVisible();
+  await expect(page.getByTestId('office-logged')).toHaveText('2');
+  await page.getByRole('button', { name: 'Remote', exact: true }).click();
   const elapsed = page.evaluate(
     () =>
       new Promise<number>((resolveMeasurement) => {
-        const button = [...document.querySelectorAll('button')].find(
-          (value) => value.textContent === 'Working remotely',
-        )!;
+        const button = document.querySelector('[data-date="2026-03-24"]')!;
         button.addEventListener(
           'click',
           () => {
             const start = performance.now();
-            const metric = document.querySelector('.metrics .metric-value')!;
+            const metric = document.querySelector('[data-testid="office-logged"]')!;
             const observer = new MutationObserver(() => {
               if (metric.textContent?.trim().startsWith('1')) {
                 observer.disconnect();
@@ -73,7 +72,7 @@ test('five-year mobile-sized dataset meets feedback and full recalculation budge
         );
       }),
   );
-  await page.getByRole('button', { name: 'Working remotely', exact: true }).click();
+  await page.locator('[data-date="2026-03-24"]').click();
   const recalculationMs = await elapsed;
   expect(recalculationMs).toBeLessThan(500);
   await page.goto('/calendar');
@@ -169,7 +168,7 @@ test('a real service-worker update prompts without reloading an open notes draft
     await page.goto(`http://127.0.0.1:${address.port}/dashboard`);
     await page.getByRole('button', { name: 'Preview policy', exact: true }).click();
     await page.getByRole('button', { name: 'Confirm policy & start' }).click();
-    await expect(page.getByRole('heading', { name: 'Your office rhythm.' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'This week', exact: true })).toBeVisible();
     await expect(page.locator('.saved-status')).toHaveText('Saved on this browser');
     await page.evaluate(async () => {
       await navigator.serviceWorker.ready;
@@ -195,12 +194,10 @@ test('a real service-worker update prompts without reloading an open notes draft
       'Unfinished synthetic draft',
     );
     await page.getByRole('button', { name: 'Close dialog' }).click();
-    await expect(page.getByRole('button', { name: 'Review app update' })).toBeVisible();
-    await page.getByRole('button', { name: 'Review app update' }).click();
-    await expect(page.getByRole('dialog')).toContainText(
-      'Unfinished ranges, notes, and policy drafts will be discarded',
-    );
-    await page.getByRole('button', { name: 'Confirm reload' }).click();
+    await expect(page.getByRole('button', { name: 'Update app' })).toBeVisible();
+    await page.getByRole('button', { name: 'Update app' }).click();
+    await expect(page.getByRole('dialog')).toContainText('Unsaved edits will be lost');
+    await page.getByRole('button', { name: 'Reload', exact: true }).click();
     await expect(page.locator('[data-date="2026-03-24"]')).toHaveAttribute(
       'aria-label',
       /Office, actual/,

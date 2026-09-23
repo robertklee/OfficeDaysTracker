@@ -118,10 +118,10 @@ export function forecast(snapshot: Snapshot): Forecast {
         ? 'planning'
         : 'on-track';
   const explanation = {
-    'on-track': 'On track under recorded plan',
-    planning: 'More planning needed',
-    conflict: 'Plan conflicts with policy',
-    gathering: 'Gathering history / not started',
+    'on-track': 'Your plan meets the target',
+    planning: 'More office days needed',
+    conflict: 'Review your history or plans',
+    gathering: 'No full policy window yet',
   }[state];
   return {
     state,

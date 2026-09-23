@@ -162,10 +162,10 @@ test('account is reachable before policy setup, cloud edits survive another brow
   const { credentials, user } = await createAccount(page);
   expect((await snapshot(page.request, user)).dataset.policy).toBeNull();
   await page.goto('/dashboard');
-  await page.getByLabel('Enforcement start').fill('2026-03-23');
+  await page.getByLabel('Start date', { exact: true }).fill('2026-03-23');
   await page.getByRole('button', { name: 'Preview policy', exact: true }).click();
   await page.getByRole('button', { name: 'Confirm policy & start' }).click();
-  await expect(page.getByRole('heading', { name: 'Your office rhythm.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'This week', exact: true })).toBeVisible();
   await page.goto('/calendar');
   await day(page, '2026-03-24').click();
   await expect(day(page, '2026-03-24')).toHaveAttribute('aria-label', /Office, actual/);
@@ -189,18 +189,14 @@ test('account is reachable before policy setup, cloud edits survive another brow
 
     await signOut(page);
     await page.goto('/dashboard');
-    await expect(
-      page.getByRole('heading', { name: 'Make office days work for you.' }),
-    ).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Set up your week' })).toBeVisible();
     const { user: nextUser } = await createAccount(page);
     expect(nextUser.id).not.toBe(user.id);
     const nextSnapshot = await snapshot(page.request, nextUser);
     expect(nextSnapshot.dataset.records).toEqual([]);
     expect(nextSnapshot.dataset.policy).toBeNull();
     await page.goto('/calendar');
-    await expect(
-      page.getByRole('heading', { name: 'Make office days work for you.' }),
-    ).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Set up your week' })).toBeVisible();
     await otherPage.reload();
     await expect(day(otherPage, '2026-03-24')).toHaveAttribute('aria-label', /Office, actual/);
     expect((await snapshot(otherPage.request, user)).dataset.records).toHaveLength(1);
@@ -223,7 +219,7 @@ test('local import requires confirmation, replaces only the account and leaves t
     buffer: Buffer.from(JSON.stringify(local)),
   });
   await page.getByRole('button', { name: 'Confirm replacement', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Settings & backups' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible();
   const localBefore = await localPlanner(page);
   expect(localBefore).not.toBeNull();
   const { credentials, user } = await createAccount(page);
@@ -243,13 +239,13 @@ test('local import requires confirmation, replaces only the account and leaves t
     }),
   );
   await page.reload();
-  await page.getByRole('button', { name: 'Review local data import', exact: true }).click();
+  await page.getByRole('button', { name: 'Import local planner', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Import local planner?' });
   await expect(dialog).toBeVisible();
   expect((await snapshot(page.request, user)).dataset).toEqual(oldCloud);
   await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
   expect((await snapshot(page.request, user)).dataset).toEqual(oldCloud);
-  await page.getByRole('button', { name: 'Review local data import', exact: true }).click();
+  await page.getByRole('button', { name: 'Import local planner', exact: true }).click();
   await dialog.getByRole('button', { name: 'Import into account', exact: true }).click();
   await expect(dialog).not.toBeVisible();
   await expect.poll(async () => (await snapshot(page.request, user)).dataset).toEqual(local);
@@ -291,9 +287,7 @@ test('local import requires confirmation, replaces only the account and leaves t
     await expect(day(otherPage, '2026-03-26')).toHaveAttribute('aria-label', /Remote, planned/);
     await signOut(otherPage);
     await otherPage.goto('/calendar');
-    await expect(
-      otherPage.getByRole('heading', { name: 'Make office days work for you.' }),
-    ).toBeVisible();
+    await expect(otherPage.getByRole('heading', { name: 'Set up your week' })).toBeVisible();
   } finally {
     await otherBrowser.close();
   }
@@ -397,9 +391,9 @@ test('lifecycle: service worker never caches private account data or falls back 
 
   await context.setOffline(true);
   await page.reload();
-  await expect(page.locator('.topbar')).toContainText('Local workspace');
-  await expect(page.getByRole('heading', { name: 'Account session unavailable' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Make office days work for you.' })).toBeVisible();
+  await expect(page.locator('.topbar')).toContainText('My planner');
+  await expect(page.getByRole('heading', { name: 'Account unavailable' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Set up your week' })).toBeVisible();
   await expect(page.getByRole('main')).not.toContainText(privateNote);
   await expect(page.getByRole('main')).not.toContainText(user.username);
   expect((await inspectPrivateStorage(page, [privateNote, user.id, user.username])).leaks).toEqual(
@@ -429,11 +423,9 @@ test('lifecycle: another tab logout broadcasts clear the account workspace and a
   await other.getByLabel('Notes', { exact: true }).fill('An unsaved private draft');
   await signOut(page);
   await expect(other).toHaveURL(/\/calendar$/);
-  await expect(other.locator('.topbar')).toContainText('Local workspace');
+  await expect(other.locator('.topbar')).toContainText('My planner');
   await expect(other.getByRole('dialog')).not.toBeVisible();
-  await expect(
-    other.getByRole('heading', { name: 'Make office days work for you.' }),
-  ).toBeVisible();
+  await expect(other.getByRole('heading', { name: 'Set up your week' })).toBeVisible();
   await expect(other.getByRole('main')).toContainText('Account data was cleared from this tab');
   await expect(other.getByRole('main')).not.toContainText(privateNote);
   await expect(other.getByRole('main')).not.toContainText('An unsaved private draft');

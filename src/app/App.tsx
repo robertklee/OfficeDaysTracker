@@ -30,7 +30,7 @@ function PWAStatus() {
     updateServiceWorker,
   } = useRegisterSW({
     onRegisterError: () =>
-      setError('Offline setup failed. Revisit online to retry; your browser records are retained.'),
+      setError('Offline setup failed. Reconnect to try again. Saved data is safe.'),
     onRegisteredSW: (_url, registration) => {
       if (registration)
         window.addEventListener('focus', () => {
@@ -67,14 +67,14 @@ function PWAStatus() {
       <span>
         {isAccount
           ? online
-            ? 'Account mode · online connection required'
-            : 'Offline · account storage unavailable'
+            ? 'Account connected'
+            : 'Offline · reconnect to use your account'
           : online
             ? offlineReady || navigator.serviceWorker?.controller
               ? 'Ready for offline use'
-              : 'Online · preparing offline shell'
-            : 'Offline · working on this browser'}{' '}
-        · {installed ? 'Installed' : 'Installation optional'}
+              : 'Preparing offline access'
+            : 'Offline · saved in this browser'}
+        {installed && ' · Installed'}
       </span>
       {install && (
         <button
@@ -84,9 +84,7 @@ function PWAStatus() {
               await install.userChoice;
               setInstall(null);
             } catch {
-              setError(
-                'Installation could not finish. You can continue using the website normally.',
-              );
+              setError('Could not install. You can still use the website.');
             }
           }}
         >
@@ -95,9 +93,9 @@ function PWAStatus() {
       )}
       {needRefresh && (
         <div className="notice" role="status">
-          An app update is ready. Finish and save edits before reloading.{' '}
+          Update available. Save your edits before reloading.{' '}
           <button disabled={saving || !!pending} onClick={() => setConfirmUpdate(true)}>
-            Review app update
+            Update app
           </button>
           <button onClick={() => setNeedRefresh(false)}>Later</button>
         </div>
@@ -105,8 +103,8 @@ function PWAStatus() {
       {confirmUpdate && (
         <Dialog title="Reload to update?" onClose={() => setConfirmUpdate(false)}>
           <p>
-            Saved attendance stays in {isAccount ? 'your account' : 'this browser'}. Unfinished
-            ranges, notes, and policy drafts will be discarded. Cancel to finish editing first.
+            Saved days stay in {isAccount ? 'your account' : 'this browser'}. Unsaved edits will be
+            lost.
           </p>
           <div className="button-row">
             <button
@@ -119,7 +117,7 @@ function PWAStatus() {
                 );
               }}
             >
-              Confirm reload
+              Reload
             </button>
             <button onClick={() => setConfirmUpdate(false)}>Cancel</button>
           </div>
@@ -152,10 +150,9 @@ export function App() {
             RTO<span className="brand-light">planner</span>
           </span>
         </a>
-        <p className="sidebar-label">YOUR WORK, IN BALANCE</p>
         <nav aria-label="Main navigation">
           <NavLink to="/dashboard">
-            <span aria-hidden="true">▦</span>Dashboard
+            <span aria-hidden="true">▦</span>This week
           </NavLink>
           <NavLink to="/calendar">
             <span aria-hidden="true">▤</span>Calendar
@@ -168,22 +165,18 @@ export function App() {
           </NavLink>
         </nav>
         <div className="sidebar-note">
-          <strong>Private by design.</strong>
+          <strong>{isAccount ? 'Account planner' : 'Local planner'}</strong>
           <p>
-            {isAccount
-              ? 'Your account planner is saved in Cloudflare D1.'
-              : 'Your attendance lives on this browser. No account required.'}
+            {isAccount ? 'Saved across your devices.' : 'Saved in this browser. No account needed.'}
           </p>
-          <span className="small">
-            Plan with confidence.
-            <br />
-            Keep a backup.
-          </span>
+          <NavLink to={isAccount ? '/account' : '/settings'}>
+            {isAccount ? 'Manage account' : 'Back up your data'}
+          </NavLink>
         </div>
       </aside>
       <div className="workspace">
         <header className="topbar">
-          <span>{account.user ? `${account.user.displayName}'s account` : 'Local workspace'}</span>
+          <span>{account.user ? `${account.user.displayName}'s planner` : 'My planner'}</span>
           <div className={`saved-status ${error ? 'failed' : ''}`} role="status">
             {saving
               ? 'Saving...'
@@ -194,18 +187,18 @@ export function App() {
                     ? 'Saved to your account'
                     : 'Saved on this browser'
                   : isAccount
-                    ? 'Opening account storage...'
-                    : 'Opening browser storage...'}
+                    ? 'Loading account...'
+                    : 'Loading...'}
           </div>
         </header>
         <main id="main">
           {account.error && !isAccount && route.pathname !== '/account' && (
             <section className="notice" role="status">
-              <h2>Account session unavailable</h2>
+              <h2>Account unavailable</h2>
               <p>{account.error}</p>
               <p>
-                Only the separate local planner is open. Account records have not been loaded or
-                deleted. <NavLink to="/account">Review account connection</NavLink>
+                You are viewing your local planner. Your account data is unchanged.{' '}
+                <NavLink to="/account">Check connection</NavLink>
               </p>
             </section>
           )}
@@ -216,7 +209,7 @@ export function App() {
                   ? isAccount
                     ? 'Account save not confirmed'
                     : 'Your edit is not saved'
-                  : 'Unable to evaluate stored data'}
+                  : 'Could not load your data'}
               </h2>
               <p>{error}</p>
               <div className="button-row">
@@ -226,7 +219,7 @@ export function App() {
                 {pending && (
                   <>
                     <button onClick={store.exportPending}>Export unsaved changes</button>
-                    <button onClick={store.discard}>Discard pending edit</button>
+                    <button onClick={store.discard}>Discard unsaved edit</button>
                   </>
                 )}
               </div>
@@ -237,33 +230,27 @@ export function App() {
           ) : migrationRequired ? (
             <section className="card">
               <h1>Reload required</h1>
-              <p>
-                A newer tab upgraded the local database. This older tab has stopped writing to
-                protect your data. Export any pending edit before reloading.
-              </p>
+              <p>Another tab updated the app. Export unsaved edits, then reload to continue.</p>
               {pending && <button onClick={store.exportPending}>Export unsaved changes</button>}
-              <button onClick={() => location.reload()}>Reload compatible app</button>
+              <button onClick={() => location.reload()}>Reload</button>
             </section>
           ) : !snapshot ? (
             <section className="card">
               <h1>Opening your planner</h1>
               <p>
                 {error
-                  ? 'Storage is unavailable. Resolve the error above before recording attendance.'
+                  ? 'Resolve the storage error above to continue.'
                   : isAccount
-                    ? 'Reading your account records...'
-                    : 'Reading this browser’s local records...'}
+                    ? 'Loading your account...'
+                    : 'Loading saved days...'}
               </p>
             </section>
           ) : !configured ? (
             <>
               <div className="page-heading">
                 <div>
-                  <p className="eyebrow">WELCOME TO YOUR PERSONAL PLANNER</p>
-                  <h1>Make office days work for you.</h1>
-                  <p className="muted">
-                    Set a policy, track your days, and see a workable path ahead.
-                  </p>
+                  <h1>Set up your week</h1>
+                  <p className="muted">Choose your office policy to get started.</p>
                 </div>
               </div>
               <section className="card">
@@ -283,8 +270,7 @@ export function App() {
                 element={
                   <section className="card">
                     <h1>Page not found</h1>
-                    <p>Use the navigation to return to your planner.</p>
-                    <NavLink to="/dashboard">Go to Dashboard</NavLink>
+                    <NavLink to="/dashboard">Back to this week</NavLink>
                   </section>
                 }
               />
@@ -294,8 +280,8 @@ export function App() {
         <footer>
           <PWAStatus />
           <p>
-            Advisory planning, not employer-certified compliance.{' '}
-            <NavLink to="/settings">Policy assumptions & backups</NavLink>
+            Planning advice, not an official attendance record.{' '}
+            <NavLink to="/settings">Settings & backups</NavLink>
           </p>
         </footer>
       </div>

@@ -18,10 +18,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { failed: boolean
       return (
         <main className="fatal">
           <h1>Unable to open the planner</h1>
-          <p>
-            An application error prevented evaluation. No compliance result is available. Saved
-            browser data has not been intentionally deleted.
-          </p>
+          <p>Something went wrong. Reload to try again. Your saved data has not been deleted.</p>
           <button onClick={() => location.reload()}>Reload app</button>
         </main>
       );

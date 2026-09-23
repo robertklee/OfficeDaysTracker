@@ -8,6 +8,35 @@ export type Suggestion = {
   explanation: string;
   alternatives: string[];
 };
+
+export type WeeklyRecommendation = {
+  weekStart: string;
+  officeDays: number;
+  additionalDays: number;
+};
+export type WeeklyRecommendations = {
+  state: Suggestion['state'];
+  weeks: WeeklyRecommendation[];
+};
+
+export function recommendWeeks(snapshot: Snapshot): WeeklyRecommendations {
+  const suggestion = suggest(snapshot);
+  if (suggestion.state !== 'ready' && suggestion.state !== 'unnecessary')
+    return { state: suggestion.state, weeks: [] };
+  return {
+    state: suggestion.state,
+    weeks: forecast(snapshot).checkpoints.map((point) => {
+      const additionalDays = suggestion.dates.filter(
+        (date) => date >= point.weekStart && date <= point.end,
+      ).length;
+      return {
+        weekStart: point.weekStart,
+        officeDays: point.committedDates.length + additionalDays,
+        additionalDays,
+      };
+    }),
+  };
+}
 export function simulatedEntries(dates: readonly string[]): Entry[] {
   return dates.map((date) => ({
     date,

@@ -49,12 +49,10 @@ export function BackupSettings() {
   }
   return (
     <section className="card">
-      <h2>Backups & {isAccount ? 'account' : 'local'} data</h2>
+      <h2>Backups</h2>
       <p>
-        {isAccount
-          ? 'Your records are saved in your account in Cloudflare D1.'
-          : 'Your records stay in this browser on this origin.'}{' '}
-        JSON is a complete backup; CSV contains attendance only and cannot restore settings.
+        {isAccount ? 'Saved to your account.' : 'Saved in this browser.'} JSON backs up everything.
+        CSV exports attendance only.
       </p>
       <div className="button-row">
         <button onClick={exportJSON}>Export JSON backup</button>
@@ -70,7 +68,7 @@ export function BackupSettings() {
           Export attendance CSV
         </button>
         <label className="button file-button">
-          Review JSON import
+          Import backup
           <input
             aria-label="Import JSON backup"
             type="file"
@@ -81,10 +79,8 @@ export function BackupSettings() {
         </label>
       </div>
       <p className="muted">
-        Import limit: 5 MB. Only RTO Planner web backups are supported. Native app imports and
-        timezone guessing are intentionally not supported.
-        {isAccount &&
-          ' Account storage is limited to 1.5 MB including revision and undo metadata; larger imports will be rejected without changing saved data.'}
+        RTO Planner web backups only, up to 5 MB.
+        {isAccount && ' Accounts have a 1.5 MB storage limit, including undo history.'}
       </p>
       {error && (
         <p role="alert" className="error">
@@ -103,27 +99,27 @@ export function BackupSettings() {
         Delete all {isAccount ? 'account planner' : 'local'} data
       </button>
       {review && (
-        <Dialog title="Review replacement backup" onClose={() => setReview(null)}>
+        <Dialog title="Restore backup?" onClose={() => setReview(null)}>
           <p>
-            <strong>{review.dataset.records.length} attendance entries</strong>,{' '}
-            {review.dataset.records.filter((entry) => entry.priority === 'must').length} protected
-            days, {review.dataset.policy?.kind ?? 'no confirmed'} policy, and weekend preference
-            will replace all {snapshot.dataset.records.length} current entries.
+            Replace your saved days and settings with{' '}
+            <strong>
+              {review.dataset.records.length} {review.dataset.records.length === 1 ? 'day' : 'days'}
+            </strong>{' '}
+            and the settings in this backup.
           </p>
           <p>
-            This replacement is atomic and cannot be undone. Download a pre-replacement backup
-            first.{' '}
+            This cannot be undone. Back up your current data first.{' '}
             {isAccount
-              ? 'Other devices receive the replacement when they refresh.'
-              : 'Other open tabs will receive the replacement.'}
+              ? 'The change applies across your devices.'
+              : 'The change applies to all open tabs.'}
           </p>
           {review.revision !== snapshot.revision && (
             <p role="alert" className="error">
-              Stored data changed after import review. Cancel and review the file again.
+              Your data changed. Cancel and import the file again.
             </p>
           )}
           <div className="button-row">
-            <button onClick={exportJSON}>Download pre-replacement backup</button>
+            <button onClick={exportJSON}>Back up current data</button>
             <button
               className="danger"
               disabled={blocked || review.revision !== snapshot.revision}
@@ -152,11 +148,11 @@ export function BackupSettings() {
           onClose={() => setDeleteDialog(false)}
         >
           <p>
-            This deletes all attendance, priorities, policy and preferences{' '}
+            Delete all saved days and settings{' '}
             {isAccount
-              ? 'in your account, on every device. Your account and the separate local planner are retained'
-              : 'on this origin'}
-            . Export a backup first. This cannot be undone.
+              ? 'in your account, on every device. Your account and local planner stay'
+              : 'in this browser'}
+            . This cannot be undone.
           </p>
           <label>
             Type DELETE to confirm
@@ -197,65 +193,52 @@ export function Settings() {
   const [storageMessage, setStorageMessage] = useState('');
   async function requestPersistence() {
     if (!navigator.storage?.persist) {
-      setStorageMessage(
-        'Persistent storage requests are not supported here. Keep regular JSON backups.',
-      );
+      setStorageMessage('This browser does not support storage protection. Keep regular backups.');
       return;
     }
     try {
       const granted = await navigator.storage.persist();
       setStorageMessage(
         granted
-          ? 'Persistent storage granted. This reduces eviction risk but does not replace backups.'
-          : 'The browser did not grant persistent storage. Data still saves locally; keep regular backups.',
+          ? 'Storage protection is on. Keep backups too.'
+          : 'Storage protection was not granted. Your data still saves here; keep backups.',
       );
     } catch {
-      setStorageMessage(
-        'Unable to request persistent storage. Check browser permissions and keep a JSON backup.',
-      );
+      setStorageMessage('Could not protect storage. Check browser permissions and keep a backup.');
     }
   }
   return (
     <>
       <div className="page-heading">
         <div>
-          <p className="eyebrow">MAKE IT YOURS</p>
-          <h1>Settings & backups</h1>
-          <p className="muted">An explicit policy. Data you control.</p>
+          <h1>Settings</h1>
+          <p className="muted">Your office policy and saved data.</p>
         </div>
       </div>
       <section className="card">
         <h2>Attendance policy</h2>
-        <p>
-          Review any changes before applying. Settings affect all recorded history; historical
-          policy versions are not retained.
-        </p>
+        <p>Policy changes apply to past records too.</p>
         <PolicyForm />
       </section>
       <BackupSettings />
       <section className="card">
-        <h2>Browser storage & privacy</h2>
+        <h2>Storage & privacy</h2>
         <p>
-          No tracking scripts. In local mode attendance stays in your browser. In account mode,
-          attendance, notes and settings are sent to the same-origin API and stored in Cloudflare
-          D1. They are not end-to-end encrypted or kept in an offline account cache. Cloudflare also
-          receives ordinary hosting request metadata; visits are not invisible.
+          No analytics. Local data stays in your browser. Account data is stored in Cloudflare D1,
+          requires internet access, and is not end-to-end encrypted. Cloudflare receives hosting
+          request metadata.
         </p>
         <p>
-          Clearing site data, private browsing, browser eviction, or changing browsers can remove or
-          separate your records. Production, preview, pages.dev, and custom-domain addresses have
-          independent storage. Move data with JSON export/import.
+          Clearing browser data or using private browsing can lose local records. Different browsers
+          and site addresses have separate storage. Use a JSON backup to move your data.
         </p>
         {!isAccount && (
-          <button onClick={() => void requestPersistence()}>
-            Request persistent browser storage
-          </button>
+          <button onClick={() => void requestPersistence()}>Protect browser storage</button>
         )}
         <p role="status">{storageMessage}</p>
-        <h3>Reminders, not background notifications</h3>
+        <h3>Reminders</h3>
         <p>
-          While this app is open, the Dashboard highlights unconfirmed past plans and upcoming gaps.
-          There are no scheduled notifications after the tab is closed.
+          Past plans are flagged on This week. There are no notifications when the app is closed.
         </p>
       </section>
     </>

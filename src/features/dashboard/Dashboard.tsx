@@ -1,38 +1,43 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useStore } from '../../app/store';
+import { type PlanningResponse } from '../../app/planning.worker';
+import { AttendanceTools, dayLabels, type DayTool } from '../../components/AttendanceTools';
 import { Dialog } from '../../components/Dialog';
 import { editAction, type EditAction } from '../../data/repository';
-import { addDays, dateRange, formatDate, startOfWeek, weekday } from '../../domain/dates';
+import {
+  addDays,
+  dateRange,
+  formatDate,
+  isWeekend,
+  startOfWeek,
+  weekday,
+} from '../../domain/dates';
 import { evaluate, formulas, weekdayName } from '../../domain/policies';
 import { forecast } from '../../domain/projection';
-import { simulatedEntries, strategyLabel, type Suggestion } from '../../domain/planning';
-import { type PlanningResponse } from '../../app/planning.worker';
 
 const stateLabel = {
   'not-started': 'Not started',
-  gathering: 'Gathering history',
-  initializing: 'Provisional progress',
-  compliant: 'Meeting recorded requirement',
-  shortfall: 'Recorded shortfall',
-  invalid: 'Unable to evaluate',
+  gathering: 'No completed weeks yet',
+  initializing: 'Building your history',
+  compliant: 'On track',
+  shortfall: 'Below target',
+  invalid: 'Unable to calculate',
 };
 
 export function Dashboard() {
-  const { snapshot, today, edit, perform, saving, pending, error, storageLabel } = useStore();
-  const [preview, setPreview] = useState<{
-    suggestion: Suggestion;
-    action: EditAction;
-    revision: number;
-    referenceDate: string;
-    horizonEnd: string;
-    strategies: Record<string, ReturnType<typeof strategyLabel>>;
-  } | null>(null);
-  const [searching, setSearching] = useState(false);
-  const [searchError, setSearchError] = useState('');
+  const store = useStore();
+  const { snapshot, today, perform, saving, pending, error } = store;
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [tool, setTool] = useState<DayTool>('office');
+  const [confirmation, setConfirmation] = useState<EditAction | null>(null);
   const [message, setMessage] = useState('');
-  const workerRef = useRef<Worker | null>(null);
-  useEffect(() => () => workerRef.current?.terminate(), []);
+  const [attempt, setAttempt] = useState(0);
+  const [planning, setPlanning] = useState<{
+    source: typeof snapshot;
+    today: string;
+    response: PlanningResponse;
+  } | null>(null);
   const policy = snapshot?.dataset.policy;
   const domainSnapshot = useMemo(
     () => ({ policy, records: snapshot?.dataset.records ?? [], today }),
@@ -43,428 +48,412 @@ export function Dashboard() {
     [policy, domainSnapshot, today],
   );
   const projection = useMemo(() => forecast(domainSnapshot), [domainSnapshot]);
-  if (!snapshot || !policy) return null;
-  if (error)
-    return (
-      <section className="card">
-        <h1>Unable to evaluate</h1>
-        <p>
-          Resolve the storage error above before relying on an attendance result or forecast.
-          Unsaved changes are not included in stored history.
-        </p>
-      </section>
-    );
-  const currentStart = startOfWeek(today, policy.weekStart);
-  const weekDates = dateRange(currentStart, addDays(currentStart, 6));
-  const office = snapshot.dataset.records.filter(
-    (entry) =>
-      weekDates.includes(entry.date) &&
-      entry.type === 'office' &&
-      entry.status === 'actual' &&
-      entry.date <= today &&
-      entry.date >= policy.startDate,
-  ).length;
-  const pastPlans = snapshot.dataset.records
-    .filter((entry) => entry.status === 'planned' && entry.date < today)
-    .sort((a, b) => b.date.localeCompare(a.date));
-  const affected = projection.firstAffected ?? projection.firstAdvisory;
-  const protectedCount = snapshot.dataset.records.filter(
-    (entry) => entry.priority === 'must' && entry.date >= today && entry.date <= projection.end,
-  ).length;
-  const blocked = saving || !!pending;
-  const currentEntry = snapshot.dataset.records.find((entry) => entry.date === today);
 
-  function findPlan() {
-    setSearching(true);
-    setSearchError('');
+  useEffect(() => {
+    if (!policy || error) return;
+    let active = true;
+    let worker: Worker | undefined;
+    const finish = (response: PlanningResponse) => {
+      if (active) setPlanning({ source: snapshot, today, response });
+      worker?.terminate();
+    };
     try {
-      const worker = new Worker(new URL('../../app/planning.worker.ts', import.meta.url), {
+      worker = new Worker(new URL('../../app/planning.worker.ts', import.meta.url), {
         type: 'module',
       });
-      workerRef.current = worker;
-      worker.onmessage = (event: MessageEvent<PlanningResponse>) => {
-        const response = event.data;
-        if (response.error !== undefined) setSearchError(response.error);
-        else
-          setPreview({
-            suggestion: response.result,
-            strategies: response.strategies,
-            revision: snapshot!.revision,
-            referenceDate: today,
-            horizonEnd: projection.end,
-            action: {
-              ...editAction(
-                snapshot!,
-                simulatedEntries(response.result.dates).map((value) => ({
-                  date: value.date,
-                  value,
-                })),
-              ),
-              expectedDatasetRevision: snapshot!.revision,
-            },
-          });
-        setSearching(false);
-        worker.terminate();
-        workerRef.current = null;
-      };
-      worker.onerror = () => {
-        setSearchError(
-          'The planning worker could not start. Try again or plan directly in Calendar.',
-        );
-        setSearching(false);
-        worker.terminate();
-        workerRef.current = null;
+      worker.onmessage = (event: MessageEvent<PlanningResponse>) => finish(event.data);
+      worker.onerror = (event) => {
+        event.preventDefault();
+        finish({ error: 'Could not calculate weekly targets. Try again.' });
       };
       worker.postMessage(domainSnapshot);
     } catch {
-      setSearchError(
-        'Unable to complete the planning search. No changes were made. Try again or plan directly in Calendar.',
-      );
-      setSearching(false);
+      finish({ error: 'Could not calculate weekly targets. Try again.' });
     }
+    const closePage = (event: PageTransitionEvent) => {
+      if (!event.persisted) {
+        active = false;
+        worker?.terminate();
+      }
+    };
+    window.addEventListener('pagehide', closePage);
+    return () => {
+      active = false;
+      worker?.terminate();
+      window.removeEventListener('pagehide', closePage);
+    };
+  }, [domainSnapshot, snapshot, today, policy, error, attempt]);
+
+  if (!snapshot || !policy) return null;
+  const currentStart = startOfWeek(today, policy.weekStart);
+  const displayedStart = startOfWeek(selectedDate ?? today, policy.weekStart);
+  const isCurrentWeek = displayedStart === currentStart;
+  const isPastWeek = displayedStart < currentStart;
+  const withinForecast = displayedStart >= currentStart && displayedStart <= projection.end;
+  const weekDates = dateRange(displayedStart, addDays(displayedStart, 6));
+  const entries = new Map(snapshot.dataset.records.map((entry) => [entry.date, entry]));
+  const weekEntries = snapshot.dataset.records.filter((entry) => weekDates.includes(entry.date));
+  const logged = weekEntries.filter(
+    (entry) => entry.type === 'office' && entry.status === 'actual' && entry.date <= today,
+  ).length;
+  const planned = weekEntries.filter(
+    (entry) => entry.type === 'office' && entry.status === 'planned' && entry.date >= today,
+  ).length;
+  const pastPlans = snapshot.dataset.records.filter(
+    (entry) => entry.status === 'planned' && entry.date < today,
+  );
+  const response =
+    planning?.source === snapshot && planning.today === today ? planning.response : null;
+  const recommendation = response?.result?.weeks.find((week) => week.weekStart === displayedStart);
+  const blocked = saving || !!pending || !!error;
+  const eligible = displayedStart >= current.firstEligible;
+  const conflict = response?.result?.state === 'conflict';
+  const unavailable =
+    response?.error ||
+    (response?.result && ['invalid', 'limited'].includes(response.result.state)
+      ? 'Could not calculate weekly targets. Review your policy or try again.'
+      : null);
+
+  async function save(action: EditAction) {
+    if (await perform(action)) setMessage('Day saved.');
   }
+  function showWeek(date: string | null) {
+    setSelectedDate(date === currentStart ? null : date);
+    setMessage('');
+  }
+  function enterDay(date: string) {
+    if (blocked) return;
+    setMessage('');
+    const previous = entries.get(date);
+    const action = editAction(snapshot!, [
+      {
+        date,
+        value:
+          tool === 'erase'
+            ? null
+            : {
+                date,
+                type: tool,
+                status: date > today ? 'planned' : 'actual',
+                priority: previous?.priority ?? 'normal',
+                notes: previous?.notes ?? '',
+              },
+      },
+    ]);
+    if (previous?.priority === 'must') setConfirmation(action);
+    else void save(action);
+  }
+
   return (
     <>
-      <div className="page-heading">
-        <div>
-          <p className="eyebrow">{formatDate(today, true).toUpperCase()}</p>
-          <h1>Your office rhythm.</h1>
-          <p className="muted">A clearer picture of where you are, and what comes next.</p>
+      <div className="page-heading week-heading">
+        <div aria-live="polite">
+          <p className="eyebrow">Week of {formatDate(displayedStart)}</p>
+          <h1>{isCurrentWeek ? 'This week' : isPastWeek ? 'Past week' : 'Upcoming week'}</h1>
         </div>
-        <Link className="button primary" to="/calendar">
-          Open calendar
-        </Link>
-      </div>
-      <section className="card today-card">
-        <div>
-          <span className="eyebrow">TODAY'S CHECK-IN</span>
-          <h2>
-            {currentEntry
-              ? `${currentEntry.type[0].toUpperCase()}${currentEntry.type.slice(1)} · ${currentEntry.status}`
-              : 'Where are you working today?'}
-          </h2>
-          <p className="muted">Confirm actual attendance. Your future plans stay plans.</p>
-        </div>
-        <div className="button-row">
-          {(['office', 'remote'] as const).map((type) => (
+        <div className="week-header-actions">
+          <div className="week-navigation" role="group" aria-label="Week navigation">
             <button
-              key={type}
-              className={`tool ${type}`}
-              disabled={blocked || currentEntry?.priority === 'must'}
-              onClick={async () => {
-                if (
-                  await edit([
-                    {
-                      date: today,
-                      value: {
-                        date: today,
-                        type,
-                        status: 'actual',
-                        priority: currentEntry?.priority ?? 'normal',
-                        notes: currentEntry?.notes ?? '',
-                      },
-                    },
-                  ])
-                )
-                  setMessage(`Today saved ${storageLabel}.`);
-              }}
+              aria-label="Previous week"
+              onClick={() => showWeek(addDays(displayedStart, -7))}
             >
-              {type === 'office' ? 'In the office' : 'Working remotely'}
+              <span aria-hidden="true">←</span>
             </button>
-          ))}
-          {currentEntry?.priority === 'must' && (
-            <Link to="/calendar">Edit protected day in Calendar</Link>
-          )}
+            <button disabled={isCurrentWeek} onClick={() => showWeek(null)}>
+              This week
+            </button>
+            <button aria-label="Next week" onClick={() => showWeek(addDays(displayedStart, 7))}>
+              <span aria-hidden="true">→</span>
+            </button>
+          </div>
+          <Link className="button" to="/calendar">
+            View calendar <span aria-hidden="true">↗</span>
+          </Link>
         </div>
-      </section>
-      <div className="metrics">
-        <section className="card metric">
-          <span className="eyebrow">THIS WEEK · PROVISIONAL</span>
-          <div className="metric-value">
-            {office}
-            <span> / {policy.kind === 'weekdays' ? policy.requiredDays.length : policy.n}</span>
-          </div>
-          <h2>Confirmed office days</h2>
-          <div className="week-dots">
-            {weekDates.map((date) => {
-              const entry = snapshot.dataset.records.find((value) => value.date === date);
-              return (
-                <span
-                  key={date}
-                  className={entry?.type === 'office' ? 'filled' : ''}
-                  title={`${formatDate(date)}: ${entry?.type ?? 'unknown'}`}
-                  aria-label={`${weekdayName(weekday(date))}: ${entry?.type ?? 'unknown'}, ${entry?.status ?? 'unentered'}`}
-                >
-                  {weekdayName(weekday(date)).slice(0, 1)}
-                </span>
-              );
-            })}
-          </div>
-          <p className="muted">
-            Week of {formatDate(currentStart)}.{' '}
-            {currentStart < current.firstEligible
-              ? 'Initial partial week is informational only.'
-              : 'Not part of formal completed-week status.'}
-          </p>
-        </section>
-        <section className={`card metric status-${current.state}`}>
-          <span className="eyebrow">RECORDED ATTENDANCE</span>
-          <h2 className="status-title">{stateLabel[current.state]}</h2>
-          {current.score ? (
-            <p>
-              <strong>
-                {current.score.achieved} / {current.score.target}
-              </strong>{' '}
-              {current.score.unit}
-            </p>
-          ) : (
-            <p>No completed-week score yet.</p>
-          )}
-          <p className="muted">{current.explanation}</p>
-          {current.windowStart && (
-            <p className="small">
-              {formatDate(current.windowStart)} - {formatDate(current.windowEnd!)}
-            </p>
-          )}
-        </section>
-        <section className="card metric">
-          <span className="eyebrow">YOUR COMMITMENTS</span>
-          <div className="metric-value">{protectedCount}</div>
-          <h2>Protected upcoming days</h2>
-          <p className="muted">
-            Must-priority commitments are preserved by suggestions. Protection does not waive your
-            policy.
-          </p>
-          <Link to="/calendar">Shape your plan</Link>
-        </section>
       </div>
-      <section className={`card forecast-card status-${projection.state}`}>
-        <div className="section-heading">
-          <div>
-            <p className="eyebrow">LOOKING AHEAD</p>
-            <h2>{projection.explanation}</h2>
-          </div>
-          <span className="pill">Current + next {projection.horizonWeeks} weeks</span>
-        </div>
-        <p>
-          Through <strong>{formatDate(projection.end)}</strong> only. This forecast is advisory, not
-          employer-certified compliance.
-        </p>
-        <div className="scenario-grid">
-          <div>
-            <h3>Committed-plan case</h3>
-            <p>
-              Actual history plus explicit future office plans. Unknown dates add no office
-              attendance.
-            </p>
-          </div>
-          <div>
-            <h3>Available-capacity case</h3>
-            <p>
-              Add every unknown future date, preserving explicit non-office plans, leave, and
-              protected commitments.
-            </p>
-          </div>
-        </div>
-        {affected ? (
-          <div className="notice">
-            <h3>
-              {affected.formal ? 'First affected checkpoint' : 'Upcoming provisional planning need'}
-              : {formatDate(affected.end)}
-            </h3>
-            <p>
-              Evaluation window: {formatDate(affected.committed.windowStart!)} -{' '}
-              {formatDate(affected.committed.windowEnd!)}. {affected.committed.score?.achieved} of{' '}
-              {affected.committed.score?.target} {affected.committed.score?.unit} committed.
-            </p>
-            <p>
-              This week has {affected.committedDates.length} committed office days and{' '}
-              {affected.availableDates.length} remaining unknown dates
-              {affected.availableDates.length
-                ? `: ${affected.availableDates.map(formatShort).join(', ')}`
-                : '.'}
-            </p>
-            {!affected.capacity.score?.met && (
-              <p>
-                <strong>Capacity conflict:</strong> This checkpoint cannot be repaired just by
-                filling unknown dates. Review historical missing confirmations and explicit plans;
-                never add future days as a fix for a historical shortfall.
-              </p>
-            )}
-            {affected.expiringWeeks.length > 0 && (
-              <p>
-                Qualifying week aging out: {affected.expiringWeeks.map(formatShort).join(', ')}.
-              </p>
-            )}
-          </div>
-        ) : (
-          <p>
-            {projection.checkpoints.length
-              ? 'No recorded-plan gap at the evaluated checkpoints.'
-              : 'Enforcement has no eligible checkpoint inside this horizon.'}
-          </p>
-        )}
-        {current.state === 'initializing' && (
-          <p className="muted">
-            You are still gathering the rolling window. Upcoming risks are planning advice, not a
-            declaration that you are out of policy now.
-          </p>
-        )}
-        <div className="button-row">
-          <button
-            className="primary"
-            disabled={blocked || searching}
-            onClick={() => void findPlan()}
+
+      <section
+        className="card week-card"
+        aria-label={`Attendance for week of ${formatDate(displayedStart)}`}
+      >
+        <div className="week-summary">
+          <div
+            className="recommendation"
+            aria-live="polite"
+            aria-busy={eligible && withinForecast && !response && !error}
           >
-            {searching ? 'Finding a feasible plan...' : 'Preview suggested office days'}
-          </button>
-          <Link to="/calendar">Plan manually</Link>
+            <p className="eyebrow">{isPastWeek ? 'Week in review' : 'Recommended for this week'}</p>
+            {error ? (
+              <>
+                <h2>Target unavailable</h2>
+                <p>Resolve the save error above to continue.</p>
+              </>
+            ) : isPastWeek ? (
+              <>
+                <h2 className="recommendation-value">
+                  <strong>{logged}</strong> office {logged === 1 ? 'day' : 'days'}
+                </h2>
+                <p>Logged attendance. Tap a day to make a correction.</p>
+              </>
+            ) : !eligible ? (
+              <>
+                <h2>No target yet</h2>
+                <p>Your first full week starts {formatDate(current.firstEligible)}.</p>
+              </>
+            ) : !withinForecast ? (
+              <>
+                <h2>No target available</h2>
+                <p>
+                  Recommendations run through {formatDate(projection.end)}. You can still plan days.
+                </p>
+              </>
+            ) : unavailable ? (
+              <>
+                <h2>Target unavailable</h2>
+                <p role="alert">{unavailable}</p>
+                <button
+                  onClick={() => {
+                    setPlanning(null);
+                    setAttempt((value) => value + 1);
+                  }}
+                >
+                  Retry target
+                </button>
+              </>
+            ) : conflict ? (
+              <>
+                <h2>Review your plan</h2>
+                <p>
+                  Your history or saved plans leave a gap. <Link to="/calendar">Review days</Link>
+                </p>
+              </>
+            ) : recommendation ? (
+              <>
+                <h2 className="recommendation-value">
+                  <strong>{recommendation.officeDays}</strong> office{' '}
+                  {recommendation.officeDays === 1 ? 'day' : 'days'}
+                </h2>
+                <p>
+                  {recommendation.additionalDays
+                    ? `${recommendation.additionalDays} more to plan`
+                    : recommendation.officeDays
+                      ? 'Your logged and planned days cover this target.'
+                      : 'No office days needed this week.'}
+                </p>
+              </>
+            ) : (
+              <>
+                <h2>Calculating target...</h2>
+                <p>You can log days while we work.</p>
+              </>
+            )}
+          </div>
+          <div
+            className="week-totals"
+            aria-label={`Office days for week of ${formatDate(displayedStart)}`}
+          >
+            <div>
+              <strong data-testid="office-logged">{logged}</strong>
+              <span>Office logged</span>
+            </div>
+            <div>
+              <strong data-testid="office-planned">{planned}</strong>
+              <span>Office planned</span>
+            </div>
+          </div>
         </div>
-        {searchError && (
-          <p className="error" role="alert">
-            {searchError}
+        {policy.kind === 'weekdays' && (
+          <p className="week-policy-note">
+            Your policy requires {policy.requiredDays.map(weekdayName).join(', ')}. Other days do
+            not substitute.
           </p>
         )}
-      </section>
-      {pastPlans.length > 0 && (
-        <section className="card reminder">
-          <h2>{pastPlans.length} past plans need confirmation</h2>
-          <p>
-            Plans are never silently promoted to actual. Review what really happened in Calendar
-            using the day details action.
-          </p>
-          <div className="button-row">
-            {pastPlans.slice(0, 5).map((entry) => (
-              <span className="pill" key={entry.date}>
-                {formatDate(entry.date)} · {entry.type}
-              </span>
-            ))}
-            <Link to="/calendar">Review attendance</Link>
+        {recommendation &&
+          policy.kind === 'rolling' &&
+          policy.mode === 'average' &&
+          recommendation.officeDays > policy.n && (
+            <p className="week-policy-note">
+              Extra days this week support your rolling average. Weekend attendance may be needed.
+            </p>
+          )}
+        <div className="week-toolbar">
+          <div>
+            <h2>Log your days</h2>
+            <p className="muted" id="week-help">
+              Choose a type, then tap a day. Future days save as plans.
+            </p>
           </div>
+          <button
+            disabled={!store.undoAvailable || blocked}
+            onClick={async () => {
+              setMessage('');
+              await store.undo();
+            }}
+          >
+            Undo
+          </button>
+        </div>
+        <AttendanceTools value={tool} onChange={setTool} />
+        <div className="week-grid" aria-describedby="week-help">
+          {weekDates.map((date) => {
+            const entry = entries.get(date);
+            const status =
+              entry?.status === 'planned'
+                ? date < today
+                  ? 'Needs confirmation'
+                  : 'Planned'
+                : entry
+                  ? date > today
+                    ? 'Needs review'
+                    : 'Logged'
+                  : date <= today
+                    ? 'Not logged'
+                    : 'Not set';
+            return (
+              <button
+                key={date}
+                data-date={date}
+                disabled={blocked}
+                aria-current={date === today ? 'date' : undefined}
+                aria-label={`${formatDate(date, true)}, ${entry ? dayLabels[entry.type] : 'Unentered'}, ${status}${entry?.priority === 'must' ? ', protected' : ''}${date === today ? ', today' : ''}`}
+                className={`week-day ${entry?.type ?? ''} ${entry?.status ?? ''} ${isWeekend(date) ? 'weekend' : ''}`}
+                onClick={() => enterDay(date)}
+              >
+                <span className="week-day-heading">
+                  <span>{weekdayName(weekday(date)).slice(0, 3)}</span>
+                  {date === today && <span className="today-label">Today</span>}
+                </span>
+                <span className="week-day-number">{Number(date.slice(-2))}</span>
+                <span className="week-day-type">
+                  {entry ? dayLabels[entry.type] : <span aria-hidden="true">+</span>}
+                </span>
+                <span className="week-day-status">
+                  {status}
+                  {entry?.priority === 'must' && ' · Protected'}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <div className="week-footnote">
+          <span role="status">{message || 'Changes save automatically.'}</span>
+          <Link to="/calendar">Notes & day details</Link>
+        </div>
+      </section>
+
+      {pastPlans.length > 0 && (
+        <section className="notice reminder reminder-row">
+          <div>
+            <h2>
+              {pastPlans.length} {pastPlans.length === 1 ? 'past plan needs' : 'past plans need'}{' '}
+              confirmation
+            </h2>
+            <p>Only logged days count toward your attendance.</p>
+          </div>
+          <Link to="/calendar">Review past days</Link>
         </section>
       )}
-      <section className="card">
-        <div className="section-heading">
-          <h2>Week-by-week outlook</h2>
-          <span className="muted">No guarantees beyond the horizon</span>
+      {!error && (
+        <div className="week-secondary">
+          <section className={`card status-${current.state}`}>
+            <p className="eyebrow">Completed weeks</p>
+            <h2>{stateLabel[current.state]}</h2>
+            <p className="muted">{current.explanation}</p>
+            {current.score && (
+              <p className="history-score">
+                <strong>
+                  {current.score.achieved} / {current.score.target}
+                </strong>{' '}
+                {current.score.unit}
+              </p>
+            )}
+            {current.windowStart && (
+              <p className="small muted">
+                {formatDate(current.windowStart)} - {formatDate(current.windowEnd!)}
+              </p>
+            )}
+          </section>
+          <section className="card policy-summary">
+            <p className="eyebrow">Your policy</p>
+            <h2>{formulas[policy.kind].label}</h2>
+            <p>{formulas[policy.kind].explain(policy)}</p>
+            <Link to="/settings">Edit policy</Link>
+          </section>
         </div>
-        <div className="table-scroll">
-          <table>
-            <thead>
-              <tr>
-                <th>Week of</th>
-                <th>Strategy</th>
-                <th>Office plan</th>
-                <th>Unknown dates</th>
-                <th>Checkpoint: plan / capacity</th>
-              </tr>
-            </thead>
-            <tbody>
-              {projection.checkpoints.map((point) => (
-                <tr key={point.end}>
-                  <th scope="row">{formatDate(point.weekStart)}</th>
-                  <td>
-                    {preview?.revision === snapshot.revision && preview.referenceDate === today
-                      ? preview.strategies[point.weekStart]
-                      : strategyLabel(domainSnapshot, point.weekStart, [])}
-                  </td>
-                  <td>{point.committedDates.length}</td>
-                  <td>{point.availableDates.length}</td>
-                  <td>
-                    {point.formal ? '' : 'Provisional: '}
-                    {point.committed.score?.met ? 'Meets' : 'Gap'} /{' '}
-                    {point.capacity.score?.met ? 'Can meet' : 'Conflict'}
-                    {point.expiringWeeks.length > 0 && (
-                      <span className="small block">
-                        Qualifying week expires: {point.expiringWeeks.map(formatShort).join(', ')}
-                      </span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-      <section className="card policy-summary">
-        <h2>Your policy, in plain language</h2>
-        <p>{formulas[policy.kind].explain(policy)}</p>
-        <p className="muted">
-          Weeks start {weekdayName(policy.weekStart)} · {policy.timeZone} · Enforced from{' '}
-          {formatDate(policy.startDate)}. Recorded weekend office days can earn credit. Leave
-          exemptions are not modeled. Only completed full weeks determine recorded compliance.
-        </p>
-        <Link to="/settings">Review policy & assumptions</Link>
-      </section>
-      <p role="status">{message}</p>
-      {preview && (
-        <Dialog title="Suggested plan preview" onClose={() => setPreview(null)}>
-          <p>{preview.suggestion.explanation}</p>
-          {preview.suggestion.dates.length > 0 && (
-            <>
-              <p>
-                These are suggested, interchangeable dates unless the policy requires that weekday.
-                Applying creates planned office entries in one undoable transaction, never actual
-                attendance.
-              </p>
-              <div className="suggestion-list">
-                {preview.suggestion.dates.map((date) => (
-                  <span className="pill" key={date}>
-                    {formatDate(date)}
-                    {policy.kind === 'weekdays' ? ' · Required weekday' : ' · Suggested'}
-                  </span>
-                ))}
-              </div>
-              <p>
-                <strong>Verified:</strong> The proposed plan meets all checkpoints through{' '}
-                {formatDate(preview.horizonEnd)}, including provisional targets.
-              </p>
-            </>
-          )}
-          {preview.suggestion.alternatives.length > 0 && (
-            <div className="notice">
-              <h3>Separate alternative: review remote plans</h3>
-              <p>
-                These unprotected remote dates may be reviewed manually in Calendar. No conversion
-                or success is assumed; recalculate after each change.
-              </p>
-              <p>{preview.suggestion.alternatives.map(formatShort).join(', ')}</p>
-              <Link to="/calendar" onClick={() => setPreview(null)}>
-                Review alternatives in Calendar
-              </Link>
+      )}
+      {!error && (
+        <details className="card outlook">
+          <summary>
+            Upcoming weeks <span>Weekly targets</span>
+          </summary>
+          <p className="muted">
+            Recommended totals include logged and planned office days. Choose your own dates within
+            your policy.
+          </p>
+          {conflict ? (
+            <p className="notice">
+              Your history or saved plans leave a gap. Check missing confirmations, time off, and
+              remote plans in Calendar. Future attendance cannot fix a past shortfall.
+            </p>
+          ) : unavailable ? (
+            <p role="alert">{unavailable}</p>
+          ) : !response ? (
+            <p>Calculating targets...</p>
+          ) : (
+            <div className="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Week of</th>
+                    <th>Office days</th>
+                    <th>More to plan</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {response.result?.weeks.map((week) => (
+                    <tr key={week.weekStart}>
+                      <th scope="row">
+                        {formatDate(week.weekStart)}
+                        {week.weekStart === currentStart && (
+                          <span className="small block">This week</span>
+                        )}
+                      </th>
+                      <td>{week.officeDays}</td>
+                      <td>{week.additionalDays}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {!response.result?.weeks.length && (
+                <p>No full policy weeks before {formatDate(projection.end)}.</p>
+              )}
             </div>
           )}
-          {(preview.revision !== snapshot.revision || preview.referenceDate !== today) && (
-            <p role="alert" className="error">
-              Data or the policy-local date changed since this preview. Close and generate a new
-              plan before applying.
-            </p>
-          )}
+          <p className="small muted">
+            Through {formatDate(projection.end)}. Targets may change as you log days. Weekends
+            count; leave does not lower your target.
+          </p>
+        </details>
+      )}
+      {confirmation && (
+        <Dialog title="Change protected day?" onClose={() => setConfirmation(null)}>
+          <p>This day is protected. Change it anyway?</p>
           <div className="button-row">
-            {preview.suggestion.state === 'ready' && (
-              <button
-                className="primary"
-                disabled={
-                  blocked ||
-                  preview.revision !== snapshot.revision ||
-                  preview.referenceDate !== today
-                }
-                onClick={async () => {
-                  if (await perform(preview.action)) {
-                    setPreview(null);
-                    setMessage('Suggested plan saved. You can undo it from Calendar.');
-                  }
-                }}
-              >
-                Apply {preview.suggestion.dates.length} planned office days
-              </button>
-            )}
-            <button onClick={() => setPreview(null)}>Close preview</button>
+            <button
+              className="primary"
+              disabled={blocked}
+              onClick={() => {
+                const action = confirmation;
+                setConfirmation(null);
+                void save(action);
+              }}
+            >
+              Change day
+            </button>
+            <button onClick={() => setConfirmation(null)}>Cancel</button>
           </div>
         </Dialog>
       )}
     </>
   );
 }
-
-const formatShort = (date: string) => formatDate(date);

@@ -39,12 +39,12 @@ export const isWeekMet = (policy: Policy, week: Week): boolean =>
 export const formulas: Record<Policy['kind'], PolicyFormula> = {
   rolling: {
     kind: 'rolling',
-    label: 'Best X of Y weeks',
+    label: 'Best weeks in a rolling window',
     validate: (value) => policySchema.parse(value),
     explain: (policy) => {
       if (policy.kind !== 'rolling') throw new Error('Incorrect formula configuration.');
       return policy.mode === 'qualifying'
-        ? `At least ${policy.x} of the last ${policy.y} completed weeks need ${policy.n} office days each. Extra days cannot rescue another week.`
+        ? `${policy.n} office days in at least ${policy.x} of every ${policy.y} weeks. Extra days do not carry over.`
         : `The best ${policy.x} of the last ${policy.y} completed weeks need ${policy.x * policy.n} office days combined.`;
     },
     evaluate: (policy, weeks, eligible) => {
@@ -74,7 +74,7 @@ export const formulas: Record<Policy['kind'], PolicyFormula> = {
     validate: (value) => policySchema.parse(value),
     explain: (policy) => {
       if (policy.kind !== 'weekly') throw new Error('Incorrect formula configuration.');
-      return `Each completed week needs ${policy.n} office days, reported over ${policy.windowWeeks} weeks. Weeks cannot offset each other.`;
+      return `${policy.n} office days each week, tracked over ${policy.windowWeeks} weeks. Extra days do not carry over.`;
     },
     evaluate: (policy, weeks) => {
       const achieved = weeks.filter((week) => isWeekMet(policy, week)).length;
@@ -82,7 +82,7 @@ export const formulas: Record<Policy['kind'], PolicyFormula> = {
         achieved,
         target: weeks.length,
         met: achieved === weeks.length,
-        unit: 'weeks meeting every obligation',
+        unit: 'weeks on target',
       };
     },
     recommendationSupport: 'unknown-weekdays',
@@ -93,7 +93,7 @@ export const formulas: Record<Policy['kind'], PolicyFormula> = {
     validate: (value) => policySchema.parse(value),
     explain: (policy) => {
       if (policy.kind !== 'weekdays') throw new Error('Incorrect formula configuration.');
-      return `Office attendance is required every ${policy.requiredDays.map(weekdayName).join(', ')}. Other weekdays cannot substitute.`;
+      return `Office days: ${policy.requiredDays.map(weekdayName).join(', ')}. Other days do not substitute.`;
     },
     evaluate: (policy, weeks) => {
       const achieved = weeks.filter((week) => isWeekMet(policy, week)).length;
@@ -101,7 +101,7 @@ export const formulas: Record<Policy['kind'], PolicyFormula> = {
         achieved,
         target: weeks.length,
         met: achieved === weeks.length,
-        unit: 'weeks meeting every obligation',
+        unit: 'weeks on target',
       };
     },
     recommendationSupport: 'unknown-weekdays',
@@ -158,14 +158,14 @@ export function evaluateWeeks(policy: Policy, weeks: Week[], referenceDate: stri
       ...base,
       state: 'not-started',
       score: null,
-      explanation: 'Not started. Enforcement is in the future.',
+      explanation: 'Your policy starts in the future.',
     };
   if (!eligibleCompleted)
     return {
       ...base,
       state: 'gathering',
       score: null,
-      explanation: 'Gathering history. No full eligible policy week has completed.',
+      explanation: 'Your first result appears after a full policy week.',
     };
   const score = formulas[policy.kind].evaluate(policy, weeks, eligibleCompleted);
   if (policy.kind === 'rolling' && eligibleCompleted < policy.y) {
@@ -173,7 +173,7 @@ export function evaluateWeeks(policy: Policy, weeks: Week[], referenceDate: stri
       ...base,
       score,
       state: 'initializing',
-      explanation: `Initializing: ${eligibleCompleted} of ${policy.y} full weeks completed. The scaled target is provisional, not a formal compliance result.`,
+      explanation: `${eligibleCompleted} of ${policy.y} weeks completed. Results are provisional until the full window is available.`,
     };
   }
   return {
@@ -181,8 +181,8 @@ export function evaluateWeeks(policy: Policy, weeks: Week[], referenceDate: stri
     score,
     state: score.met ? 'compliant' : 'shortfall',
     explanation: score.met
-      ? 'Recorded actual attendance meets the completed-week requirement.'
-      : 'Recorded actual attendance falls short in the completed evaluation window. Future attendance cannot rewrite history.',
+      ? 'Your logged attendance meets the target.'
+      : 'Your logged attendance is below target. Future days cannot make up a past shortfall.',
   };
 }
 

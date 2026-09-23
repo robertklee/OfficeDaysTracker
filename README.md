@@ -29,7 +29,8 @@ Vite proxies `/api` to the Worker on port 8788. Without Wrangler, the local
 planner still works but reports that account connectivity is unavailable.
 Confirm a policy on the first visit, or restore a versioned JSON backup. The
 default best-8-of-12 average / 3-day policy is an unconfirmed example until you
-explicitly accept it.
+explicitly accept it. New planners start weeks on Sunday; existing policies keep
+their saved week start.
 
 ```sh
 npm test                 # Pure domain, storage, migration, and backup tests
@@ -232,12 +233,17 @@ credentials, cookies, tokens, request bodies and attendance.
 
 ## Behavior and architecture
 
-- **Calendar:** idempotent painting; Office, Remote, leave types and Eraser;
+- **This week** (`/dashboard`): quick entry for all seven days, office/remote/time-off
+  tools, clear and undo, logged/planned totals, and a recommended office-day count.
+  Browse previous or next weeks, or return with **This week**. Past weeks show
+  logged attendance; future weeks show recommendations within the forecast window.
+  Weeks beyond that window remain editable without a recommended target.
+  Past and present entries are logged; future entries are plans. Editing protected
+  days requires confirmation. Completed-week results and a collapsed weekly outlook
+  sit below the entry controls.
+- **Calendar:** idempotent painting; Office, Remote, leave types and Clear;
   inclusive/reverse range painting; optional weekends; keyboard ranges; notes;
   actual/planned status; protected commitments; and transactional undo.
-- **Dashboard:** completed-week results, current-week progress, two explicit
-  forecast cases, first affected checkpoint, expiring qualifying weeks, past-plan
-  reminders, strategic week labels, and reviewed/undoable schedule suggestions.
 - **Settings:** typed policy validation and recalculation preview; fixed IANA
   timezone; complete JSON backups; attendance-only CSV; reviewed atomic import;
   explicit local/account-planner deletion; and local persistent-storage requests.
@@ -250,15 +256,19 @@ evaluation, explanation, and recommendation metadata; it does not execute
 uploaded expressions. The planner starts from a proven feasible capacity
 schedule and removes later dates when all checkpoints remain satisfied. It
 preserves commitments, favors fewer additions and earlier dates, and is locally
-minimal, **not globally optimal**. The search runs in a worker so calendar and
-navigation interaction are not blocked.
+minimal, **not globally optimal**. The search runs automatically in a worker and
+returns weekly totals, not specific dates to attend. Totals include existing
+office entries; recommendations never write attendance or apply a schedule.
+Required-weekday policies still require their configured weekdays. Results refresh
+after edits and policy-local date changes; outdated worker results are discarded.
+If the search cannot satisfy the forecast, the UI asks for a plan review rather
+than showing a misleading zero-day target.
 
 `src/data/model.ts` contains the shared mutation rules; `repository.ts` is the
 Dexie transaction boundary and `remote-repository.ts` calls the account API.
 Each date has a revision, including
 deletion tombstones, and dataset replacement advances a generation. Stale edits
-are rejected rather than overwritten; full-plan previews also check the dataset
-revision. Dexie live queries propagate same-origin tab changes. Failed edits
+are rejected rather than overwritten. Dexie live queries propagate same-origin tab changes. Failed edits
 remain available for retry or a recovery JSON export. Undo is session-local (last
 30 attendance actions), checks revisions, and does not survive reload or import.
 

@@ -37,9 +37,8 @@ export function Account() {
     <>
       <div className="page-heading">
         <div>
-          <p className="eyebrow">YOUR PLANNER, YOUR CHOICE</p>
           <h1>Account</h1>
-          <p className="muted">Keep a local planner, or save a separate planner across devices.</p>
+          <p className="muted">Access your planner across devices.</p>
         </div>
       </div>
       <section className="card">
@@ -50,38 +49,35 @@ export function Account() {
               Username: <strong>{account.user.username}</strong>
             </p>
             <p>
-              Account attendance, notes, policy and preferences are saved to Cloudflare D1. Account
-              storage requires an internet connection. It is not cached in this browser. Signing out
-              clears this account workspace and returns to your untouched local planner.
+              Your account planner needs an internet connection. Signing out returns you to your
+              separate local planner.
             </p>
             <div className="button-row">
               <Link className="button primary" to="/dashboard">
-                Open account planner
+                Go to this week
               </Link>
               <button disabled={blocked} onClick={() => setSignout(true)}>
                 Sign out
               </button>
             </div>
-            <h3 className="subtle">Bring your local planner</h3>
+            <h3 className="subtle">Import local days</h3>
             <p>
-              Nothing is uploaded automatically. Review an import to replace the account planner
-              with this browser&apos;s local data, or import a JSON backup in Settings. The local
-              original is retained. Account storage has a 1.5 MB limit including revision and undo
-              metadata.
+              Replace your account planner with this browser&apos;s data. Your local copy stays.
+              Nothing is uploaded without your approval. You can also restore a backup in Settings.
             </p>
             <button
               disabled={blocked || !store.snapshot || !!store.error}
               onClick={() => void reviewLocal()}
             >
-              Review local data import
+              Import local planner
             </button>
           </>
         ) : (
           <>
-            <h2>{mode === 'login' ? 'Sign in to your account' : 'Create your account'}</h2>
+            <h2>{mode === 'login' ? 'Sign in' : 'Create an account'}</h2>
             <p>
-              You are using the local planner. Creating an account starts a separate, empty planner;
-              it does not upload or erase local records. Finish edits before switching workspaces.
+              Accounts start with an empty planner. Your local days stay in this browser until you
+              choose to import them. Save edits before signing in.
             </p>
             <div className="button-row" role="group" aria-label="Account form">
               <button
@@ -166,15 +162,14 @@ export function Account() {
                 />
               </label>
               <p className="muted">
-                Use 12-200 characters. Keep your password in a password manager; password recovery
-                is not available.
+                12-200 characters. Keep it somewhere safe; there is no password recovery.
               </p>
               <button className="primary" disabled={blocked} type="submit">
                 {account.busy ? 'Please wait...' : mode === 'signup' ? 'Create account' : 'Sign in'}
               </button>
             </form>
             <button className="subtle" disabled={blocked} onClick={() => void account.refresh()}>
-              Check account session
+              Retry connection
             </button>
           </>
         )}
@@ -186,24 +181,22 @@ export function Account() {
         {message && <p role="status">{message}</p>}
       </section>
       <section className="card">
-        <h2>Account limits & privacy</h2>
+        <h2>Before you use an account</h2>
         <p>
-          No email is collected. Password recovery, email verification, MFA, password changes and
-          self-service account deletion are not available. A forgotten password cannot be recovered.
-          Keep JSON backups. Do not use this account for data that requires those protections.
+          No email is collected. Password recovery, password changes, MFA, and account deletion are
+          not available. Keep backups and avoid storing sensitive information.
         </p>
         <p>
-          There are no analytics. In local mode attendance stays on this origin in your browser.
-          Account mode sends it to the same-origin account API and stores it in Cloudflare D1; it is
-          not end-to-end encrypted. Sessions expire after 30 days. Settings can erase account
-          planner data, but that does not delete your account.
+          Account data is stored in Cloudflare D1, not cached offline or end-to-end encrypted.
+          Storage is limited to 1.5 MB, including undo history. Sessions last 30 days. You can
+          delete planner data in Settings without deleting the account.
         </p>
       </section>
       {signout && (
         <Dialog title="Sign out?" onClose={() => !account.busy && setSignout(false)}>
           <p>
-            Saved account data stays in D1. Unfinished drafts will be discarded. This clears the
-            account workspace in all open tabs and restores the local planner.
+            Unsaved edits will be lost. All open tabs return to your local planner. Saved account
+            data stays in your account.
           </p>
           <div className="button-row">
             <button
@@ -229,10 +222,9 @@ export function Account() {
       {review && (
         <Dialog title="Import local planner?" onClose={() => !store.saving && setReview(null)}>
           <p>
-            Upload {review.dataset.records.length} attendance entries,{' '}
-            {review.dataset.policy?.kind ?? 'no confirmed'} policy, and preferences. This replaces
-            all {store.snapshot?.dataset.records.length ?? 0} account entries. It cannot be undone.
-            The local planner is not changed.
+            Replace {store.snapshot?.dataset.records.length ?? 0} account days and settings with{' '}
+            {review.dataset.records.length} local days and settings. This cannot be undone. Your
+            local planner stays unchanged.
           </p>
           <div className="button-row">
             <button
@@ -241,7 +233,7 @@ export function Account() {
                 download(serializeBackup(store.snapshot.dataset), 'rto-account-before-import.json')
               }
             >
-              Download account backup first
+              Back up account data
             </button>
             <button
               className="danger"
@@ -255,9 +247,7 @@ export function Account() {
                   })
                 ) {
                   setReview(null);
-                  setMessage(
-                    'Local planner imported into your account. The local original is unchanged.',
-                  );
+                  setMessage('Local planner imported. Your local copy is unchanged.');
                 }
               }}
             >

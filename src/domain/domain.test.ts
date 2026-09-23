@@ -10,7 +10,7 @@ import {
 } from './dates';
 import { evaluate } from './policies';
 import { forecast } from './projection';
-import { simulatedEntries, strategyLabel, suggest } from './planning';
+import { recommendWeeks, simulatedEntries, strategyLabel, suggest } from './planning';
 import { defaultPolicy, policySchema, type Entry, type Policy } from './schema';
 
 const start = '2026-01-05';
@@ -36,6 +36,106 @@ const entry = (date: string, override: Partial<Entry> = {}): Entry => ({
   updatedAt: '2026-01-01T00:00:00.000Z',
   ...override,
 });
+
+describe('weekly count recommendations', () => {
+  it.each([1, 6, 7] as const)(
+    'returns counts without attendance dates for week start %s',
+    (weekStart) => {
+      const first = startOfWeek(today, weekStart);
+      const policy = { ...weekly, startDate: first, weekStart };
+      const records = [
+        entry(today),
+        ...simulatedEntries([addDays(today, 1)]),
+        entry(addDays(today, 2), { type: 'vacation', status: 'planned', priority: 'must' }),
+      ];
+      const snapshot = { policy, records, today };
+      const before = JSON.stringify(snapshot);
+      const result = recommendWeeks(snapshot);
+      expect(result.state).toBe('ready');
+      expect(result.weeks[0]).toEqual({ weekStart: first, officeDays: 3, additionalDays: 1 });
+      expect(result.weeks.every((week) => week.officeDays === 3)).toBe(true);
+      expect(Object.keys(result)).toEqual(['state', 'weeks']);
+      expect(JSON.stringify(snapshot)).toBe(before);
+    },
+  );
+
+  it('aggregates a verified rolling-average plan rather than using the nominal weekly minimum', () => {
+    const snapshot = {
+      policy: { ...rolling, mode: 'average' as const, startDate: today },
+      records: [],
+      today,
+    };
+    const suggestion = suggest(snapshot);
+    const result = recommendWeeks(snapshot);
+    expect(result.weeks.some((week) => week.officeDays > rolling.n)).toBe(true);
+    expect(result.weeks.reduce((sum, week) => sum + week.additionalDays, 0)).toBe(
+      suggestion.dates.length,
+    );
+    const verified = forecast({ ...snapshot, records: simulatedEntries(suggestion.dates) });
+    expect(
+      verified.checkpoints.every(
+        (point, index) =>
+          point.committed.score?.met &&
+          point.committedDates.length === result.weeks[index].officeDays,
+      ),
+    ).toBe(true);
+  });
+
+  it('does not count past plans as attendance, or treat future actuals as plans', () => {
+    const result = recommendWeeks({
+      policy: { ...weekly, startDate: today, n: 2 },
+      today: addDays(today, 1),
+      records: [entry(today, { status: 'planned' }), entry(addDays(today, 2))],
+    });
+    expect(result.weeks[0]).toEqual({ weekStart: today, officeDays: 2, additionalDays: 2 });
+  });
+
+  it('returns an explicit conflict, not zero days, for unmet requirements', () => {
+    expect(recommendWeeks({ policy: weekly, today, records: [] })).toEqual({
+      state: 'conflict',
+      weeks: [],
+    });
+    expect(
+      recommendWeeks({
+        policy: {
+          kind: 'weekdays',
+          requiredDays: [2],
+          startDate: today,
+          weekStart: 1,
+          timeZone: 'UTC',
+          windowWeeks: 4,
+        },
+        today,
+        records: [
+          entry(addDays(today, 1), { type: 'remote', status: 'planned', priority: 'must' }),
+        ],
+      }),
+    ).toEqual({ state: 'conflict', weeks: [] });
+    expect(recommendWeeks({ policy: null, today, records: [] })).toEqual({
+      state: 'invalid',
+      weeks: [],
+    });
+  });
+
+  it('keeps partial first weeks out of recommendations and handles a fully planned horizon', () => {
+    const snapshot = { policy: { ...weekly, startDate: addDays(today, 1) }, today, records: [] };
+    expect(recommendWeeks(snapshot).weeks[0].weekStart).toBe(addDays(today, 7));
+    const plan = suggest(snapshot);
+    const covered = recommendWeeks({ ...snapshot, records: simulatedEntries(plan.dates) });
+    expect(covered.state).toBe('unnecessary');
+    expect(covered.weeks.every((week) => week.officeDays === 3 && week.additionalDays === 0)).toBe(
+      true,
+    );
+    const future = recommendWeeks({ ...snapshot, policy: { ...weekly, startDate: '2027-01-01' } });
+    expect(future).toEqual({ state: 'unnecessary', weeks: [] });
+  });
+
+  it('shows a genuine zero-day recommendation when rolling history covers the current week', () => {
+    const policy = { ...rolling, x: 1, y: 2 };
+    const result = recommendWeeks({ policy, today: '2026-01-12', records: history([3]) });
+    expect(result.weeks[0]).toEqual({ weekStart: '2026-01-12', officeDays: 0, additionalDays: 0 });
+  });
+});
 function history(counts: number[], first = start): Entry[] {
   return counts.flatMap((count, week) =>
     Array.from({ length: count }, (_, day) => entry(addDays(first, week * 7 + day))),
@@ -51,13 +151,14 @@ const weekly: Policy = {
 };
 
 describe('civil dates and policy validation', () => {
-  it('defaults first-run rolling policies to average of the best weeks', () => {
+  it('defaults new planners to Sunday-start weeks and average of the best weeks', () => {
     expect(defaultPolicy('2026-03-24', 'America/Los_Angeles')).toMatchObject({
       kind: 'rolling',
       mode: 'average',
       x: 8,
       y: 12,
       n: 3,
+      weekStart: 7,
     });
   });
 

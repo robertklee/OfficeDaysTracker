@@ -70,17 +70,15 @@ export function PolicyForm({ setup = false }: { setup?: boolean }) {
     >
       {setup && (
         <div className="notice">
-          <strong>{isAccount ? 'Your account planner.' : 'Your browser, your data.'}</strong>{' '}
           {isAccount
-            ? 'This planner saves to your account in Cloudflare D1 and requires an internet connection.'
-            : 'No account is required. Browser eviction, private browsing, clearing site data, or switching browsers can lose your local records.'}{' '}
-          Keep JSON backups. The suggested best-8-of-12 average policy is only a starting point, not
-          a claim about your employer.
+            ? 'Saved to your account. An internet connection is required.'
+            : 'Saved in this browser. Keep a backup in case browser data is cleared.'}{' '}
+          Check the example policy below against your employer&apos;s rules.
         </div>
       )}
       <div className="form-grid">
         <label>
-          Policy family
+          Policy type
           <select
             value={draft.kind}
             onChange={(event) => switchKind(event.target.value as Policy['kind'])}
@@ -95,7 +93,7 @@ export function PolicyForm({ setup = false }: { setup?: boolean }) {
         {draft.kind === 'rolling' && (
           <>
             <label>
-              Rolling mode
+              Calculation
               <select
                 value={draft.mode}
                 onChange={(event) =>
@@ -107,7 +105,7 @@ export function PolicyForm({ setup = false }: { setup?: boolean }) {
               </select>
             </label>
             <label>
-              Best weeks (X)
+              Best weeks
               <input
                 type="number"
                 min="1"
@@ -118,7 +116,7 @@ export function PolicyForm({ setup = false }: { setup?: boolean }) {
               />
             </label>
             <label>
-              Window weeks (Y)
+              Out of
               <input
                 type="number"
                 min="1"
@@ -132,7 +130,7 @@ export function PolicyForm({ setup = false }: { setup?: boolean }) {
         )}
         {draft.kind !== 'weekdays' && (
           <label>
-            Office days per week (N)
+            Office days per week
             <input
               type="number"
               min="1"
@@ -157,7 +155,7 @@ export function PolicyForm({ setup = false }: { setup?: boolean }) {
           </label>
         )}
         <label>
-          Enforcement start
+          Start date
           <input
             type="date"
             required
@@ -166,18 +164,18 @@ export function PolicyForm({ setup = false }: { setup?: boolean }) {
           />
         </label>
         <label>
-          Policy week starts
+          Week starts on
           <select
             value={draft.weekStart}
             onChange={(event) => patch({ weekStart: Number(event.target.value) as 1 | 6 | 7 })}
           >
-            <option value="1">Monday</option>
             <option value="7">Sunday</option>
+            <option value="1">Monday</option>
             <option value="6">Saturday</option>
           </select>
         </label>
         <label>
-          Policy timezone
+          Timezone
           <input
             required
             value={draft.timeZone}
@@ -215,9 +213,7 @@ export function PolicyForm({ setup = false }: { setup?: boolean }) {
         </p>
       )}
       <p className="muted">
-        Every recorded office day can earn credit, including weekends. Leave does not reduce
-        targets. Midweek enforcement begins formal evaluation with the next full week. Current weeks
-        are provisional.
+        Weekends count. Leave does not lower your target. Results use completed full weeks only.
       </p>
       <button className="primary" type="submit">
         Preview policy
@@ -227,28 +223,26 @@ export function PolicyForm({ setup = false }: { setup?: boolean }) {
           <h3>Confirm your policy</h3>
           <p>{formulas[preview.kind].explain(preview)}</p>
           <p>
-            Weeks begin {weekdayName(preview.weekStart)} in {preview.timeZone}. Enforcement:{' '}
-            {formatDate(preview.startDate)}. First full eligible week:{' '}
-            {formatDate(evaluation!.firstEligible)}.
+            Starts {formatDate(preview.startDate)}. First full week:{' '}
+            {formatDate(evaluation!.firstEligible)}. Weeks start {weekdayName(preview.weekStart)} ·{' '}
+            {preview.timeZone}.
           </p>
           <p>
-            <strong>Recalculated attendance:</strong> {evaluation?.explanation}
+            <strong>Attendance:</strong> {evaluation?.explanation}
             <br />
-            <strong>Future plan:</strong> {projection?.explanation} through{' '}
+            <strong>Outlook:</strong> {projection?.explanation} through{' '}
             {projection && formatDate(projection.end)}.
           </p>
           {!setup && (
             <p>
-              These changes recalculate historical records under the new policy; policy history is
-              not retained. Changing the week start changes grouping and due dates.
+              This policy will also apply to past records. Previous policy settings are not kept.
             </p>
           )}
           {preview.timeZone !== timeZone && (
             <p>
               <strong>Timezone change:</strong> Today changes from {today} ({timeZone}) to{' '}
-              {previewToday} ({preview.timeZone}). Week-end deadlines now follow the new timezone;
-              the next checkpoint is {projection?.checkpoints[0]?.end ?? 'outside the horizon'}.
-              Existing attendance dates do not move.
+              {previewToday} ({preview.timeZone}). Deadlines follow the new timezone. Saved
+              attendance dates stay the same.
             </p>
           )}
           <button

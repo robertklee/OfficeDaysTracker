@@ -6,8 +6,8 @@
     BlinkMacSystemFont,
     'Segoe UI',
     sans-serif;
-  color: #203149;
-  background: #f4f6f9;
+  color: #233c3a;
+  background: #f6f7f4;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -31,10 +31,10 @@ button,
   min-height: 44px;
   min-width: 44px;
   padding: 10px 17px;
-  border: 1px solid #c7d1dc;
-  border-radius: 9px;
+  border: 1px solid #cdd8d3;
+  border-radius: 10px;
   background: white;
-  color: #263e59;
+  color: #314c46;
   font-weight: 600;
   cursor: pointer;
   text-decoration: none;
@@ -46,15 +46,15 @@ button,
 }
 button:hover,
 .button:hover {
-  background: #edf2f7;
-  border-color: #8c9faf;
+  background: #f0f5f2;
+  border-color: #7f9c91;
 }
 button:disabled {
   opacity: 0.55;
   cursor: not-allowed;
 }
 a {
-  color: #225e9e;
+  color: #216355;
   text-underline-offset: 3px;
 }
 button:focus-visible,
@@ -62,6 +62,10 @@ a:focus-visible,
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
+  outline: 3px solid #a45400;
+  outline-offset: 3px;
+}
+summary:focus-visible {
   outline: 3px solid #a45400;
   outline-offset: 3px;
 }
@@ -74,8 +78,8 @@ p {
 h1 {
   font-size: clamp(1.8rem, 3vw, 2.6rem);
   line-height: 1.2;
-  letter-spacing: -1.2px;
-  margin-bottom: 12px;
+  letter-spacing: -1px;
+  margin-bottom: 8px;
   font-weight: 720;
 }
 h2 {
@@ -94,7 +98,7 @@ p:last-child {
   margin-bottom: 0;
 }
 .muted {
-  color: #5d6d80;
+  color: #63746d;
 }
 .small {
   font-size: 0.82rem;
@@ -103,19 +107,20 @@ p:last-child {
   display: block;
 }
 .eyebrow {
-  font-size: 0.7rem;
-  letter-spacing: 1.5px;
-  font-weight: 750;
-  color: #64748b;
+  font-size: 0.75rem;
+  letter-spacing: 0.8px;
+  font-weight: 650;
+  color: #63746d;
   margin-bottom: 10px;
+  text-transform: uppercase;
 }
 .primary {
-  background: #205b93;
+  background: #226553;
   color: #fff;
-  border-color: #205b93;
+  border-color: #226553;
 }
 .primary:hover {
-  background: #184a79;
+  background: #174c3e;
   color: #fff;
 }
 .danger {
@@ -160,10 +165,11 @@ p:last-child {
   min-height: 100vh;
 }
 .sidebar {
-  width: 236px;
-  background: #172b43;
-  color: #e6edf5;
-  padding: 35px 24px;
+  width: 204px;
+  background: #edf1ec;
+  border-right: 1px solid #dde5dc;
+  color: #233c3a;
+  padding: 28px 18px;
   position: fixed;
   inset: 0 auto 0 0;
   display: flex;
@@ -173,10 +179,10 @@ p:last-child {
   display: flex;
   align-items: center;
   gap: 11px;
-  font-size: 1.5rem;
+  font-size: 1.35rem;
   font-weight: 800;
   letter-spacing: -0.5px;
-  color: #fff;
+  color: #233c3a;
   text-decoration: none;
   min-height: 44px;
 }
@@ -184,31 +190,26 @@ p:last-child {
   font-weight: 400;
   margin-left: 2px;
 }
-.sidebar-label {
-  font-size: 0.6rem;
-  letter-spacing: 1.6px;
-  color: #a9b9cd;
-  margin: 22px 0 27px;
-}
 .sidebar nav {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  margin-top: 36px;
 }
 .sidebar nav a {
-  color: #c9d6e5;
+  color: #556a60;
   display: flex;
   align-items: center;
-  gap: 13px;
-  padding: 13px 15px;
+  gap: 10px;
+  padding: 12px;
   border-radius: 8px;
   text-decoration: none;
   font-size: 0.94rem;
   min-height: 48px;
 }
 .sidebar nav a.active {
-  color: #fff;
-  background: #2e4561;
+  color: #1c5645;
+  background: #dbe7da;
   font-weight: 650;
 }
 .sidebar nav a span {
@@ -220,29 +221,29 @@ p:last-child {
   margin-top: auto;
   padding: 24px 7px 0;
   font-size: 0.85rem;
-  color: #b8c8db;
+  color: #63746d;
 }
 .sidebar-note strong {
-  color: #e4edf7;
+  color: #314c46;
 }
 .sidebar-note p {
-  margin: 7px 0 22px;
+  margin: 7px 0 12px;
 }
 .workspace {
-  margin-left: 236px;
+  margin-left: 204px;
   min-width: 0;
   flex: 1;
 }
 .topbar {
-  height: 72px;
+  height: 64px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 0 42px;
-  background: #fff;
-  border-bottom: 1px solid #e1e7ef;
+  background: #f6f7f4;
+  border-bottom: 1px solid #e1e7df;
   font-size: 0.8rem;
-  color: #64748b;
+  color: #63746d;
 }
 .saved-status {
   color: #25634f;
@@ -264,9 +265,9 @@ p:last-child {
   background: #9c2525;
 }
 main {
-  max-width: 1370px;
+  max-width: 1280px;
   margin: 0 auto;
-  padding: 38px 42px 16px;
+  padding: 36px 36px 16px;
 }
 .page-heading {
   display: flex;
@@ -278,27 +279,29 @@ main {
 .page-heading p:last-child {
   margin: 0;
 }
+.week-heading {
+  flex-wrap: wrap;
+}
+.week-header-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.week-navigation {
+  display: flex;
+  gap: 6px;
+}
+.week-navigation button {
+  padding: 10px 12px;
+}
 .card {
   background: #fff;
-  border: 1px solid #e0e6ed;
-  border-radius: 14px;
+  border: 1px solid #dfe5de;
+  border-radius: 18px;
   padding: 26px;
   margin-bottom: 22px;
-  box-shadow: 0 3px 9px #172b4303;
-}
-.today-card {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 20px;
-  border-left: 4px solid #6b91b7;
-}
-.today-card h2 {
-  margin: 4px 0;
-}
-.today-card p {
-  font-size: 0.85rem;
-  margin: 0;
+  box-shadow: 0 4px 20px #233c3a03;
 }
 .tool.office {
   color: #175990;
@@ -313,57 +316,223 @@ main {
 .tool.selected {
   box-shadow: inset 0 0 0 2px currentColor;
 }
-.metrics {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 20px;
+.attendance-tools {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
 }
-.metric {
+.attendance-tools select.selected {
+  box-shadow: inset 0 0 0 2px #624284;
+  color: #624284;
+  background: #f0eafb;
+}
+.card.week-card {
+  padding: 0;
+  overflow: hidden;
+}
+.week-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+  padding: 28px;
+  background: #eaf1e6;
+  border-bottom: 1px solid #dce5d7;
+}
+.recommendation {
   min-width: 0;
-  padding: 24px;
 }
-.metric h2 {
-  font-size: 1rem;
+.recommendation h2 {
+  font-size: 1.6rem;
+  margin-bottom: 6px;
 }
-.metric p {
+.recommendation .recommendation-value {
+  font-size: 1.55rem;
+  font-weight: 500;
+}
+.recommendation-value strong {
+  font-size: 3.6rem;
+  line-height: 1.1;
+  letter-spacing: -2px;
+  margin-right: 4px;
+  font-weight: 650;
+}
+.recommendation p:last-child {
+  color: #52664f;
+  font-size: 0.88rem;
+}
+.week-totals {
+  display: flex;
+  gap: 28px;
+  flex-shrink: 0;
+}
+.week-totals > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.week-totals strong {
+  font-size: 2rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+.week-totals span {
+  font-size: 0.8rem;
+  color: #52664f;
+}
+.week-policy-note {
+  background: #f7f8f3;
+  padding: 12px 28px;
+  font-size: 0.85rem;
+  border-bottom: 1px solid #e1e7df;
+  margin: 0;
+}
+.week-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 24px 28px 16px;
+}
+.week-toolbar h2 {
+  margin-bottom: 4px;
+}
+.week-toolbar p {
   font-size: 0.85rem;
 }
-.metric-value {
-  font-size: 3rem;
-  font-weight: 730;
-  line-height: 1.4;
-  letter-spacing: -2px;
+.week-card > .attendance-tools {
+  padding: 0 28px;
 }
-.metric-value span {
-  font-size: 1.7rem;
-  color: #8090a2;
-  font-weight: 450;
-}
-.metric .status-title {
-  font-size: 1.55rem;
-  line-height: 1.25;
-  margin-top: 19px;
-}
-.week-dots {
-  display: flex;
-  gap: 9px;
-  margin: 16px 0;
-}
-.week-dots span {
+.week-grid {
   display: grid;
-  place-items: center;
-  border: 1px solid #d7e0eb;
-  border-radius: 50%;
-  width: 29px;
-  height: 29px;
-  font-size: 0.7rem;
-  color: #53667d;
-  background: #f3f5f8;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
+  padding: 22px 28px 16px;
 }
-.week-dots .filled {
-  background: #e2efff;
-  color: #1d548c;
-  border-color: #9dbee2;
+.week-day {
+  min-width: 0;
+  min-height: 176px;
+  padding: 14px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 4px;
+  text-align: left;
+  font-weight: 500;
+  background: #fafbf9;
+  border-color: #dfe5de;
+  border-radius: 12px;
+}
+.week-day.weekend:not(.office, .remote, .vacation, .sick, .holiday) {
+  background: #f0f2ee;
+}
+.week-day.planned {
+  border-style: dashed;
+}
+.week-day[aria-current='date'] {
+  outline: 2px solid #226553;
+  outline-offset: 2px;
+}
+.week-day[aria-current='date']:focus-visible {
+  outline: 3px solid #a45400;
+  outline-offset: 3px;
+}
+.week-day-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 3px;
+  font-size: 0.8rem;
+}
+.today-label {
+  font-size: 0.6rem;
+  color: #226553;
+  font-weight: 700;
+}
+.week-day-number {
+  font-size: 1.75rem;
+  letter-spacing: -0.5px;
+  margin-bottom: 16px;
+}
+.week-day-type {
+  font-size: 0.85rem;
+  font-weight: 650;
+  margin-top: auto;
+}
+.week-day-type > span {
+  font-size: 1.2rem;
+  line-height: 1;
+}
+.week-day-status {
+  font-size: 0.68rem;
+  line-height: 1.4;
+  min-height: 1.4em;
+}
+.week-footnote {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 28px 22px;
+  font-size: 0.78rem;
+  color: #63746d;
+}
+.week-secondary {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 22px;
+}
+.week-secondary p {
+  font-size: 0.88rem;
+}
+.week-secondary .eyebrow {
+  font-size: 0.75rem;
+}
+.history-score strong {
+  font-size: 1.25rem;
+}
+.reminder-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0 0 22px;
+}
+.reminder-row h2 {
+  font-size: 1rem;
+  margin-bottom: 4px;
+}
+.reminder-row a {
+  flex-shrink: 0;
+}
+summary {
+  cursor: pointer;
+  min-height: 44px;
+  align-content: center;
+}
+.outlook {
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+.outlook summary {
+  font-weight: 600;
+}
+.outlook summary > span {
+  float: right;
+  font-size: 0.85rem;
+  font-weight: 400;
+  color: #63746d;
+}
+.outlook[open] > summary {
+  margin-bottom: 16px;
+}
+.outlook > p {
+  font-size: 0.85rem;
+}
+.outlook .table-scroll {
+  margin-bottom: 16px;
 }
 .status-shortfall,
 .status-conflict {
@@ -397,21 +566,10 @@ main {
   display: inline-block;
   color: #455a72;
 }
-.scenario-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 30px;
-  margin: 24px 0;
-  color: #53667a;
-  font-size: 0.88rem;
-}
-.scenario-grid h3 {
-  color: #203149;
-}
 .notice {
   padding: 18px 20px;
-  background: #f1f5fa;
-  border: 1px solid #d4dfeb;
+  background: #f0f4ef;
+  border: 1px solid #d5dfd2;
   border-radius: 10px;
   margin: 20px 0;
   font-size: 0.9rem;
@@ -441,7 +599,7 @@ thead th {
   font-size: 0.74rem;
   font-weight: 600;
   color: #5e7187;
-  background: #f7f9fb;
+  background: #f7f9f5;
 }
 tbody th {
   font-weight: 550;
@@ -491,7 +649,7 @@ textarea {
   min-height: 20px;
   width: 20px;
   height: 20px;
-  accent-color: #205b93;
+  accent-color: #226553;
   flex-shrink: 0;
 }
 fieldset {
@@ -511,16 +669,6 @@ legend {
   gap: 18px;
   border-bottom: 1px solid #e3e9ef;
   padding-bottom: 20px;
-}
-.tool-group {
-  display: flex;
-  gap: 8px;
-}
-.compact-label {
-  flex-direction: row;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.8rem;
 }
 .month-heading {
   display: flex;
@@ -583,23 +731,28 @@ legend {
   z-index: 1;
   border-color: #69859f;
 }
-.day.office {
+.day.office,
+.week-day.office {
   background: #e6f0fe;
   color: #174f86;
 }
-.day.remote {
+.day.remote,
+.week-day.remote {
   background: #e5f3ea;
   color: #1f644e;
 }
-.day.vacation {
+.day.vacation,
+.week-day.vacation {
   background: #f0eafb;
   color: #624284;
 }
-.day.sick {
+.day.sick,
+.week-day.sick {
   background: #fff1df;
   color: #84500b;
 }
-.day.holiday {
+.day.holiday,
+.week-day.holiday {
   background: #fbe9ed;
   color: #8b3953;
 }
@@ -729,19 +882,11 @@ dialog::backdrop {
 .dialog-heading button {
   font-size: 0.8rem;
 }
-.suggestion-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  max-height: 32vh;
-  overflow: auto;
-  margin: 18px 0;
-}
 .policy-summary p {
   font-size: 0.88rem;
 }
 footer {
-  max-width: 1370px;
+  max-width: 1280px;
   margin: auto;
   padding: 0 42px 24px;
   color: #65758a;
@@ -801,22 +946,17 @@ footer p {
   .topbar {
     padding: 0 24px;
   }
-  .metrics {
-    gap: 12px;
-  }
-  .metric {
-    padding: 19px;
-  }
-  .today-card {
-    align-items: flex-start;
-    flex-direction: column;
-  }
   footer {
     padding-left: 24px;
     padding-right: 24px;
   }
-  .metric .status-title {
-    font-size: 1.3rem;
+  .week-grid {
+    padding-left: 20px;
+    padding-right: 20px;
+    gap: 6px;
+  }
+  .week-day {
+    padding: 12px 8px;
   }
 }
 @media (max-width: 800px) {
@@ -834,7 +974,6 @@ footer p {
     border-top: 1px solid #d6e0eb;
   }
   .sidebar .brand,
-  .sidebar-label,
   .sidebar-note {
     display: none;
   }
@@ -842,18 +981,19 @@ footer p {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 8px;
+    margin-top: 0;
   }
   .sidebar nav a {
     font-size: 0.7rem;
     flex-direction: column;
     gap: 1px;
     padding: 4px;
-    color: #617389;
+    color: #556a60;
     border-radius: 8px;
   }
   .sidebar nav a.active {
-    color: #205b93;
-    background: #edf3fa;
+    color: #1c5645;
+    background: #eaf1e6;
   }
   .sidebar nav a span {
     font-size: 1.25rem;
@@ -877,28 +1017,6 @@ footer p {
   .page-heading > button {
     font-size: 0.8rem;
   }
-  .metrics {
-    grid-template-columns: 1fr 1fr;
-  }
-  .metrics .metric:last-child {
-    grid-column: 1/-1;
-    display: grid;
-    grid-template-columns: 1fr auto;
-    gap: 0 20px;
-  }
-  .metrics .metric:last-child .metric-value {
-    grid-row: 1/4;
-    grid-column: 2;
-  }
-  .metrics .metric:last-child h2 {
-    margin-bottom: 5px;
-  }
-  .metrics .metric:last-child p {
-    margin-bottom: 5px;
-  }
-  .metrics .metric:last-child a {
-    font-size: 0.85rem;
-  }
   .card {
     padding: 20px;
   }
@@ -918,14 +1036,99 @@ footer p {
   .calendar-tools .check {
     font-size: 0.8rem;
   }
-  .scenario-grid {
-    gap: 18px;
-  }
   .topbar > span {
     font-size: 0.75rem;
   }
   footer {
     padding: 0 20px 20px;
+  }
+}
+@media (max-width: 650px) {
+  .week-summary {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 12px;
+    padding: 18px;
+  }
+  .week-totals {
+    flex-direction: column;
+    gap: 12px;
+  }
+  .week-totals > div {
+    gap: 2px;
+  }
+  .week-totals strong {
+    font-size: 1.4rem;
+  }
+  .week-totals span {
+    font-size: 0.7rem;
+  }
+  .recommendation .recommendation-value {
+    font-size: 1.1rem;
+  }
+  .recommendation-value strong {
+    font-size: 2.8rem;
+  }
+  .recommendation .eyebrow {
+    font-size: 0.65rem;
+  }
+  .week-toolbar {
+    padding: 16px 20px 14px;
+    align-items: flex-start;
+  }
+  .week-card > .attendance-tools {
+    padding: 0 20px;
+  }
+  .week-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 20px;
+  }
+  .week-day {
+    display: grid;
+    grid-template-columns: 64px 1fr;
+    grid-template-rows: auto auto;
+    gap: 0 18px;
+    min-height: 64px;
+    padding: 8px 14px;
+    align-items: center;
+  }
+  .week-day-heading {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .week-day-number {
+    grid-column: 1;
+    grid-row: 2;
+    font-size: 1.2rem;
+    margin: 0;
+  }
+  .week-day-type {
+    grid-column: 2;
+    grid-row: 1;
+    margin: 0;
+    align-self: end;
+  }
+  .week-day-status {
+    grid-column: 2;
+    grid-row: 2;
+    align-self: start;
+    padding-top: 4px;
+    font-size: 0.75rem;
+  }
+  .week-footnote {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+  .week-secondary {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .reminder-row {
+    flex-wrap: wrap;
+  }
+  .week-policy-note {
+    padding: 12px 20px;
   }
 }
 @media (max-width: 480px) {
@@ -946,31 +1149,31 @@ footer p {
   .page-heading > .button {
     align-self: flex-start;
   }
+  .page-heading.week-heading {
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+  }
+  .week-heading .eyebrow {
+    font-size: 0.65rem;
+    letter-spacing: 0.5px;
+  }
+  .week-header-actions {
+    width: 100%;
+    margin-top: 8px;
+  }
+  .week-header-actions > .button {
+    display: none;
+  }
+  .week-navigation {
+    display: grid;
+    grid-template-columns: 44px 1fr 44px;
+    width: 100%;
+  }
   .card {
     padding: 18px;
     margin-bottom: 16px;
     border-radius: 11px;
-  }
-  .metrics {
-    grid-template-columns: 1fr;
-    gap: 0;
-  }
-  .metrics .metric:last-child {
-    display: block;
-  }
-  .metric {
-    padding: 20px;
-  }
-  .metric-value {
-    font-size: 2.6rem;
-  }
-  .metric .status-title {
-    font-size: 1.4rem;
-  }
-  .scenario-grid {
-    grid-template-columns: 1fr;
-    gap: 14px;
-    margin: 18px 0;
   }
   .form-grid {
     grid-template-columns: 1fr;
@@ -994,11 +1197,19 @@ footer p {
   .calendar-tools button {
     padding: 10px 14px;
   }
-  .compact-label {
-    width: 100%;
+  .attendance-tools {
+    gap: 6px;
   }
-  .compact-label select {
-    flex: 1;
+  .attendance-tools button,
+  .attendance-tools select {
+    padding: 10px;
+    font-size: 0.8rem;
+  }
+  .week-card > .attendance-tools {
+    gap: 6px;
+  }
+  .outlook summary > span {
+    display: none;
   }
   .month-heading {
     flex-wrap: wrap;
@@ -1092,6 +1303,10 @@ footer p {
   }
 }
 @media (max-width: 360px) {
+  .week-card > .attendance-tools {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
   main {
     padding-left: 5px;
     padding-right: 5px;
